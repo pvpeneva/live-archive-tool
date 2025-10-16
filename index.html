@@ -1421,9 +1421,29 @@
             document.getElementById('stillsArchives').textContent = stillsData.length;
         }
         
-        window.onload = function() {
+        const DEFAULT_SHEETS = [
+    {
+        id: 'sheet_default_1',
+        name: '🎬 Main Project',
+        url: 'https://script.google.com/macros/s/AKfycbxXXXXXXXXXXXXXXXX/exec',
+        addedAt: new Date().toISOString()
+    },
+    {
+        id: 'sheet_default_2',
+        name: '📹 B-Roll Archive',
+        url: 'https://script.google.com/macros/s/AKfycbxYYYYYYYYYYYYYYYY/exec',
+        addedAt: new Date().toISOString()
+    },
+    {
+        id: 'sheet_default_3',
+        name: '🎞️ Stock Footage',
+        url: 'https://script.google.com/macros/s/AKfycbxZZZZZZZZZZZZZZZZ/exec',
+        addedAt: new Date().toISOString()
+    }
+];
             loadSavedSheets();
         };
     </script>
 </body>
+
 </html>
