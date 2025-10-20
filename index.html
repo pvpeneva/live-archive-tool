@@ -907,6 +907,7 @@
             <div class="button-group">
                 <button class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
                 <button class="btn btn-secondary" onclick="resetFilters()">Reset All</button>
+                <button class="btn btn-secondary" onclick="copyToEmail(event)">📋 Copy for Email</button>
                 <button class="btn btn-secondary" onclick="window.print()">🖨️ Print</button>
             </div>
         </div>
@@ -1419,6 +1420,251 @@
             document.getElementById('videoDuration').textContent = framesToTimecode(totalFrames);
             document.getElementById('stillsCount').textContent = stillsCount;
             document.getElementById('stillsArchives').textContent = stillsData.length;
+        }
+        
+        function copyToEmail() {
+            // Use archiveData if filteredData is empty
+            const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
+            
+            // Check if there's data to copy
+            if (!dataToUse || dataToUse.length === 0) {
+                alert('⚠️ No data to copy!\n\nPlease:\n1. Click the ☰ menu\n2. Select a sheet\n3. Wait for data to load\n4. Then try copying again');
+                return;
+            }
+            
+            const videoData = dataToUse.filter(a => a.type === 'video');
+            const stillsData = dataToUse.filter(a => a.type === 'stills');
+            const videoClips = videoData.reduce((sum, a) => sum + a.clips.length, 0);
+            const stillsCount = stillsData.reduce((sum, a) => sum + a.entries, 0);
+            const totalFrames = videoData.reduce((sum, a) => sum + a.totalFrames, 0);
+            const videoDuration = framesToTimecode(totalFrames);
+            
+            // Create HTML table
+            let html = '<div style="font-family: Arial, sans-serif;">';
+            
+            // Summary Stats Table
+            html += '<table style="border-collapse: collapse; width: 100%; margin-bottom: 30px; border: 2px solid #667eea;">';
+            html += '<thead><tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">';
+            html += '<th colspan="2" style="padding: 15px; text-align: center; font-size: 18px; border: 1px solid #667eea;">📊 ARCHIVE REPORT SUMMARY</th>';
+            html += '</tr></thead><tbody>';
+            
+            html += '<tr style="background: #f8f9fa;"><td style="padding: 10px; border: 1px solid #dee2e6; font-weight: bold;">📹 Video Clips</td><td style="padding: 10px; border: 1px solid #dee2e6;">' + videoClips + '</td></tr>';
+            html += '<tr style="background: white;"><td style="padding: 10px; border: 1px solid #dee2e6; font-weight: bold;">📹 Video Archives</td><td style="padding: 10px; border: 1px solid #dee2e6;">' + videoData.length + '</td></tr>';
+            html += '<tr style="background: #f8f9fa;"><td style="padding: 10px; border: 1px solid #dee2e6; font-weight: bold;">⏱️ Video Duration</td><td style="padding: 10px; border: 1px solid #dee2e6; font-family: monospace; font-weight: bold; color: #667eea;">' + videoDuration + '</td></tr>';
+            html += '<tr style="background: white;"><td style="padding: 10px; border: 1px solid #dee2e6; font-weight: bold;">📷 Stills/Images</td><td style="padding: 10px; border: 1px solid #dee2e6;">' + stillsCount + '</td></tr>';
+            html += '<tr style="background: #f8f9fa;"><td style="padding: 10px; border: 1px solid #dee2e6; font-weight: bold;">📷 Stills Archives</td><td style="padding: 10px; border: 1px solid #dee2e6;">' + stillsData.length + '</td></tr>';
+            
+            html += '</tbody></table>';
+            
+            // Video Archives Tables
+            if (videoData.length > 0) {
+                html += '<h2 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; margin: 30px 0 20px 0; border-radius: 8px; text-align: center;">🎬 VIDEO CLIPS</h2>';
+                
+                videoData.forEach(function(archive) {
+                    html += '<h3 style="background: #667eea; color: white; padding: 12px; margin: 20px 0 0 0; border-radius: 5px 5px 0 0;">📁 ' + archive.name + ' (' + archive.clips.length + ' clips)</h3>';
+                    
+                    html += '<table style="border-collapse: collapse; width: 100%; margin-bottom: 30px; border: 2px solid #667eea;">';
+                    html += '<thead><tr style="background: #f8f9fa;">';
+                    html += '<th style="padding: 12px; border: 1px solid #dee2e6; text-align: left;">#</th>';
+                    html += '<th style="padding: 12px; border: 1px solid #dee2e6; text-align: left;">ID</th>';
+                    html += '<th style="padding: 12px; border: 1px solid #dee2e6; text-align: left;">Inv No</th>';
+                    html += '<th style="padding: 12px; border: 1px solid #dee2e6; text-align: left;">File Name</th>';
+                    html += '<th style="padding: 12px; border: 1px solid #dee2e6; text-align: left;">Source In</th>';
+                    html += '<th style="padding: 12px; border: 1px solid #dee2e6; text-align: left;">Source Out</th>';
+                    html += '<th style="padding: 12px; border: 1px solid #dee2e6; text-align: left;">Duration</th>';
+                    html += '<th style="padding: 12px; border: 1px solid #dee2e6; text-align: left;">Link</th>';
+                    html += '</tr></thead><tbody>';
+                    
+                    archive.clips.forEach(function(clip, i) {
+                        const rowBg = i % 2 === 0 ? 'white' : '#f8f9fa';
+                        html += '<tr style="background: ' + rowBg + ';">';
+                        html += '<td style="padding: 10px; border: 1px solid #dee2e6;">' + (i + 1) + '</td>';
+                        html += '<td style="padding: 10px; border: 1px solid #dee2e6;">' + (clip.id || '—') + '</td>';
+                        html += '<td style="padding: 10px; border: 1px solid #dee2e6;">' + (clip.invNo || '—') + '</td>';
+                        html += '<td style="padding: 10px; border: 1px solid #dee2e6;">' + (clip.fileName || '—') + '</td>';
+                        html += '<td style="padding: 10px; border: 1px solid #dee2e6; font-family: monospace;">' + (clip.sourceIn || '—') + '</td>';
+                        html += '<td style="padding: 10px; border: 1px solid #dee2e6; font-family: monospace;">' + (clip.sourceOut || '—') + '</td>';
+                        html += '<td style="padding: 10px; border: 1px solid #dee2e6; font-family: monospace; font-weight: bold; color: #667eea;">' + clip.duration + '</td>';
+                        html += '<td style="padding: 10px; border: 1px solid #dee2e6;">' + (clip.link ? '<a href="' + clip.link + '" style="color: #667eea;">🔗 Link</a>' : '—') + '</td>';
+                        html += '</tr>';
+                    });
+                    
+                    html += '<tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: bold;">';
+                    html += '<td colspan="6" style="padding: 12px; border: 1px solid #667eea; text-align: right;">TOTAL:</td>';
+                    html += '<td style="padding: 12px; border: 1px solid #667eea; font-family: monospace; font-size: 16px;">' + archive.duration + '</td>';
+                    html += '<td style="padding: 12px; border: 1px solid #667eea;"></td>';
+                    html += '</tr>';
+                    
+                    html += '</tbody></table>';
+                });
+            }
+            
+            // Stills Archives Tables
+            if (stillsData.length > 0) {
+                html += '<h2 style="background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); color: white; padding: 15px; margin: 30px 0 20px 0; border-radius: 8px; text-align: center;">📷 STILLS / IMAGES</h2>';
+                
+                stillsData.forEach(function(archive) {
+                    html += '<h3 style="background: #ffc107; color: white; padding: 12px; margin: 20px 0 0 0; border-radius: 5px 5px 0 0;">📁 ' + archive.name + ' (' + archive.entries + ' images)</h3>';
+                    
+                    html += '<table style="border-collapse: collapse; width: 100%; margin-bottom: 30px; border: 2px solid #ffc107;">';
+                    html += '<thead><tr style="background: #fff3cd;">';
+                    html += '<th style="padding: 12px; border: 1px solid #ffc107; text-align: left;">#</th>';
+                    html += '<th style="padding: 12px; border: 1px solid #ffc107; text-align: left;">ID</th>';
+                    html += '<th style="padding: 12px; border: 1px solid #ffc107; text-align: left;">Inv No</th>';
+                    html += '<th style="padding: 12px; border: 1px solid #ffc107; text-align: left;">File Name</th>';
+                    html += '<th style="padding: 12px; border: 1px solid #ffc107; text-align: left;">Type</th>';
+                    html += '<th style="padding: 12px; border: 1px solid #ffc107; text-align: left;">Link</th>';
+                    html += '</tr></thead><tbody>';
+                    
+                    archive.clips.forEach(function(clip, i) {
+                        const rowBg = i % 2 === 0 ? 'white' : '#fff3cd';
+                        html += '<tr style="background: ' + rowBg + ';">';
+                        html += '<td style="padding: 10px; border: 1px solid #ffc107;">' + (i + 1) + '</td>';
+                        html += '<td style="padding: 10px; border: 1px solid #ffc107;">' + (clip.id || '—') + '</td>';
+                        html += '<td style="padding: 10px; border: 1px solid #ffc107;">' + (clip.invNo || '—') + '</td>';
+                        html += '<td style="padding: 10px; border: 1px solid #ffc107;">' + (clip.fileName || '—') + '</td>';
+                        html += '<td style="padding: 10px; border: 1px solid #ffc107;">Still Image</td>';
+                        html += '<td style="padding: 10px; border: 1px solid #ffc107;">' + (clip.link ? '<a href="' + clip.link + '" style="color: #ff9800;">🔗 Link</a>' : '—') + '</td>';
+                        html += '</tr>';
+                    });
+                    
+                    html += '<tr style="background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); color: white; font-weight: bold;">';
+                    html += '<td colspan="6" style="padding: 12px; border: 1px solid #ffc107;">TOTAL: ' + archive.entries + ' Still Images</td>';
+                    html += '</tr>';
+                    
+                    html += '</tbody></table>';
+                });
+            }
+            
+            html += '<p style="text-align: center; color: #6c757d; margin-top: 30px; padding-top: 20px; border-top: 2px solid #dee2e6;">';
+            html += 'Generated: ' + new Date().toLocaleString() + '<br>';
+            html += 'Source: Live Archive Report Tool';
+            html += '</p>';
+            
+            html += '</div>';
+            
+            // Copy HTML to clipboard
+            const copyAsHtml = function() {
+                const blob = new Blob([html], { type: 'text/html' });
+                const plainText = html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ');
+                
+                const clipboardItem = new ClipboardItem({
+                    'text/html': blob,
+                    'text/plain': new Blob([plainText], { type: 'text/plain' })
+                });
+                
+                navigator.clipboard.write([clipboardItem]).then(function() {
+                    alert('✅ SUCCESS!\n\nТаблицата е копирана!\n\nСега:\n1. Отвори имейла\n2. Ctrl+V (или Cmd+V)\n3. Таблицата ще се появи форматирана!');
+                }).catch(function(err) {
+                    console.error('Clipboard write failed:', err);
+                    showHtmlCopyPopup(html);
+                });
+            };
+            
+            // Try modern clipboard API
+            if (navigator.clipboard && window.ClipboardItem) {
+                copyAsHtml();
+            } else {
+                // Fallback for older browsers
+                showHtmlCopyPopup(html);
+            }
+        }
+        
+        function showHtmlCopyPopup(html) {
+            // Create modal with HTML preview
+            const modal = document.createElement('div');
+            modal.style.position = 'fixed';
+            modal.style.top = '0';
+            modal.style.left = '0';
+            modal.style.width = '100%';
+            modal.style.height = '100%';
+            modal.style.background = 'rgba(0,0,0,0.8)';
+            modal.style.zIndex = '10000';
+            modal.style.display = 'flex';
+            modal.style.alignItems = 'center';
+            modal.style.justifyContent = 'center';
+            modal.style.overflow = 'auto';
+            
+            const box = document.createElement('div');
+            box.style.background = 'white';
+            box.style.padding = '30px';
+            box.style.borderRadius = '12px';
+            box.style.maxWidth = '90%';
+            box.style.maxHeight = '90vh';
+            box.style.overflow = 'auto';
+            
+            const title = document.createElement('h3');
+            title.textContent = '📋 Копирай тази таблица';
+            title.style.marginBottom = '20px';
+            title.style.color = '#667eea';
+            
+            const instructions = document.createElement('p');
+            instructions.innerHTML = '<strong>Как да копираш:</strong><br>1. Натисни бутона "Копирай HTML" отдолу<br>2. Или скролни надолу и селектирай таблицата с мишката<br>3. Ctrl+C (или Cmd+C) за да копираш<br>4. Затвори този прозорец<br>5. Залепи в имейла си';
+            instructions.style.marginBottom = '20px';
+            instructions.style.lineHeight = '1.8';
+            
+            const copyBtn = document.createElement('button');
+            copyBtn.textContent = '📋 Копирай HTML';
+            copyBtn.style.padding = '12px 30px';
+            copyBtn.style.background = '#28a745';
+            copyBtn.style.color = 'white';
+            copyBtn.style.border = 'none';
+            copyBtn.style.borderRadius = '8px';
+            copyBtn.style.cursor = 'pointer';
+            copyBtn.style.fontSize = '16px';
+            copyBtn.style.marginRight = '10px';
+            copyBtn.onclick = function() {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = html;
+                tempDiv.style.position = 'absolute';
+                tempDiv.style.left = '-9999px';
+                document.body.appendChild(tempDiv);
+                
+                const range = document.createRange();
+                range.selectNodeContents(tempDiv);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+                
+                try {
+                    document.execCommand('copy');
+                    alert('✅ Копирано! Сега можеш да залепиш в имейл.');
+                    document.body.removeChild(tempDiv);
+                } catch (err) {
+                    alert('❌ Копирането не сработи. Опитай ръчно.');
+                    document.body.removeChild(tempDiv);
+                }
+            };
+            
+            const closeBtn = document.createElement('button');
+            closeBtn.textContent = 'Затвори';
+            closeBtn.style.padding = '12px 30px';
+            closeBtn.style.background = '#667eea';
+            closeBtn.style.color = 'white';
+            closeBtn.style.border = 'none';
+            closeBtn.style.borderRadius = '8px';
+            closeBtn.style.cursor = 'pointer';
+            closeBtn.style.fontSize = '16px';
+            closeBtn.onclick = function() {
+                document.body.removeChild(modal);
+            };
+            
+            const previewDiv = document.createElement('div');
+            previewDiv.innerHTML = html;
+            previewDiv.style.marginTop = '20px';
+            previewDiv.style.padding = '20px';
+            previewDiv.style.background = '#f8f9fa';
+            previewDiv.style.borderRadius = '8px';
+            previewDiv.style.maxHeight = '500px';
+            previewDiv.style.overflow = 'auto';
+            
+            box.appendChild(title);
+            box.appendChild(instructions);
+            box.appendChild(copyBtn);
+            box.appendChild(closeBtn);
+            box.appendChild(previewDiv);
+            modal.appendChild(box);
+            document.body.appendChild(modal);
         }
         
         window.onload = function() {
