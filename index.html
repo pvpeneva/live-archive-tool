@@ -749,6 +749,7 @@
             </div>
             <h1>🎬 Live Archive Report</h1>
             <p>Real-time Footage Database • Film & Video Archives</p>
+            <p id="activeSheetDisplay" style="margin-top: 10px; font-size: 0.9em; opacity: 0.8;"></p>
         </div>
         
         <div class="toggle-setup" onclick="toggleSetup()">
@@ -938,15 +939,44 @@
         let savedSheets = [];
         let currentSheetId = null;
         let editingSheetId = null;
+        let currentSheetName = '';
         
         function loadSavedSheets() {
             const saved = localStorage.getItem('savedSheets');
             savedSheets = saved ? JSON.parse(saved) : [];
+            
+            // Check URL parameters for auto-import and auto-load
+            const urlParams = new URLSearchParams(window.location.search);
+            const sheetId = urlParams.get('sheet');
+            const episode = urlParams.get('episode');
+            const name = urlParams.get('name');
+            const url = urlParams.get('url');
+            
+            // Auto-import sheet if not exists
+            if (sheetId && episode && name && url && !savedSheets.find(s => s.id === sheetId)) {
+                const newSheet = {
+                    id: sheetId,
+                    episode: decodeURIComponent(episode),
+                    name: decodeURIComponent(name),
+                    url: decodeURIComponent(url),
+                    addedAt: new Date().toISOString()
+                };
+                savedSheets.push(newSheet);
+                localStorage.setItem('savedSheets', JSON.stringify(savedSheets));
+                alert('✅ Sheet imported automatically!\n\n' + (newSheet.episode ? newSheet.episode + '_' : '') + newSheet.name);
+            }
+            
             renderSheetList();
             
-            const lastActive = localStorage.getItem('lastActiveSheet');
-            if (lastActive && savedSheets.find(s => s.id === lastActive)) {
-                loadSheet(lastActive);
+            // Auto-load sheet from URL parameter
+            if (sheetId && savedSheets.find(s => s.id === sheetId)) {
+                loadSheet(sheetId);
+            } else {
+                // Load last active sheet
+                const lastActive = localStorage.getItem('lastActiveSheet');
+                if (lastActive && savedSheets.find(s => s.id === lastActive)) {
+                    loadSheet(lastActive);
+                }
             }
         }
         
@@ -974,12 +1004,40 @@
                         <div class="sheet-item-name">${displayName}</div>
                         <div class="sheet-item-url">${sheet.url.substring(0, 40)}...</div>
                         <div class="sheet-item-actions" onclick="event.stopPropagation()">
+                            <button class="action-btn" onclick="shareSheet('${sheet.id}')" title="Copy Share Link">🔗</button>
                             <button class="action-btn" onclick="editSheet('${sheet.id}')" title="Edit">✏️</button>
                             <button class="action-btn delete" onclick="deleteSheet('${sheet.id}')" title="Delete">🗑️</button>
                         </div>
                     </li>
                 `;
                 }).join('');
+            }
+        }
+        
+        function shareSheet(id) {
+            const sheet = savedSheets.find(s => s.id === id);
+            if (!sheet) return;
+            
+            // Create share URL with all parameters
+            const params = new URLSearchParams({
+                sheet: sheet.id,
+                episode: sheet.episode || '',
+                name: sheet.name,
+                url: sheet.url
+            });
+            
+            const shareUrl = window.location.origin + window.location.pathname + '?' + params.toString();
+            const displayName = sheet.episode ? `${sheet.episode}_${sheet.name}` : sheet.name;
+            
+            // Copy to clipboard
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(shareUrl).then(() => {
+                    alert('✅ Share link copied!\n\n📋 ' + displayName + '\n\n🔗 Anyone who opens this link will automatically have access to this sheet!\n\nJust send them the link and they\'re ready to go! 🚀');
+                }).catch(() => {
+                    prompt('Copy this link to share:', shareUrl);
+                });
+            } else {
+                prompt('Copy this link to share:', shareUrl);
             }
         }
         
@@ -1086,7 +1144,11 @@
             
             currentSheetId = id;
             connectedUrl = sheet.url;
+            currentSheetName = sheet.episode ? `${sheet.episode}_${sheet.name}` : sheet.name;
             localStorage.setItem('lastActiveSheet', id);
+            
+            // Update active sheet display
+            document.getElementById('activeSheetDisplay').textContent = '📂 Active: ' + currentSheetName;
             
             document.getElementById('appsScriptUrl').value = sheet.url;
             renderSheetList();
@@ -1461,11 +1523,17 @@
             html += 'th { background: #f0f0f0; color: black; padding: 8px; text-align: left; font-weight: bold; border: 1px solid #ccc; }';
             html += 'td { padding: 8px; border: 1px solid #ccc; }';
             html += 'tr:nth-child(even) { background-color: #fafafa; }';
+            html += '.main-title { font-size: 18pt; font-weight: bold; color: #667eea; margin-bottom: 20px; padding: 15px; background: #f0f0f0; border-radius: 8px; text-align: center; }';
             html += '.archive-name { font-weight: bold; margin-top: 15px; margin-bottom: 5px; font-size: 12pt; }';
             html += '.total-row { background: #e8e8e8; font-weight: bold; }';
             html += '.section-title { font-weight: bold; font-size: 13pt; margin: 20px 0 10px 0; padding: 8px; background: #f5f5f5; border-left: 4px solid #666; }';
             html += 'a { color: #0066cc; text-decoration: none; }';
             html += '</style></head><body>';
+            
+            // Add main title with sheet name
+            if (currentSheetName) {
+                html += '<div class="main-title">📽️ ' + currentSheetName + '</div>';
+            }
             
             if (videoData.length > 0) {
                 html += '<div class="section-title">VIDEO ARCHIVES</div>';
@@ -1562,6 +1630,7 @@
             html += '.archive-header.stills { background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); }';
             html += '.section-title { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; font-size: 1.5em; font-weight: bold; margin: 30px 0 20px 0; border-radius: 8px; }';
             html += '.section-title.stills { background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); }';
+            html += '.main-title { font-size: 24pt; font-weight: bold; color: white; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin-bottom: 30px; padding: 25px; border-radius: 12px; text-align: center; }';
             html += '.summary { background: #f8f9fa; padding: 20px; margin-bottom: 30px; border-radius: 8px; border: 2px solid #667eea; }';
             html += '.summary h2 { color: #667eea; margin-bottom: 15px; }';
             html += '.summary-row { display: flex; justify-content: space-between; margin: 10px 0; }';
@@ -1569,6 +1638,11 @@
             html += '.summary-value { color: #667eea; font-weight: bold; }';
             html += 'a { color: #667eea; text-decoration: none; }';
             html += '</style></head><body>';
+            
+            // Add main title with sheet name
+            if (currentSheetName) {
+                html += '<div class="main-title">📽️ ' + currentSheetName + '</div>';
+            }
             
             html += '<div class="summary">';
             html += '<h2>📊 ARCHIVE REPORT SUMMARY</h2>';
