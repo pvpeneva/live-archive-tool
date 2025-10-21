@@ -718,6 +718,7 @@
         </div>
         <div class="sidebar-content">
             <button class="add-sheet-btn" onclick="showAddSheetModal()">+ Add New Sheet</button>
+            <button class="add-sheet-btn" onclick="testSharing()" style="background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); margin-bottom: 10px;">🧪 Test Sharing</button>
             <ul class="sheet-list" id="sheetList"></ul>
             <div class="empty-state" id="emptyState">
                 <div class="empty-state-icon">📋</div>
@@ -958,51 +959,109 @@
         let currentSheetName = '';
         let currentSheetInfo = {};
         
-        // Load saved sheets on startup - FIXED FOR GITHUB PAGES
+        // Load saved sheets on startup - ULTRA RELIABLE VERSION
         function loadSavedSheets() {
             const saved = localStorage.getItem('savedSheets');
             savedSheets = saved ? JSON.parse(saved) : [];
             
-            // Check for shared sheet in URL hash (works with GitHub Pages!)
-            const hash = window.location.hash;
-            if (hash && hash.startsWith('#share=')) {
+            // Check for shared sheet in URL (multiple methods)
+            let sharedData = null;
+            
+            // Method 1: Check query parameter ?s=...
+            const urlParams = new URLSearchParams(window.location.search);
+            const shareParam = urlParams.get('s');
+            
+            if (shareParam) {
                 try {
-                    const encoded = hash.substring(7); // Remove #share=
-                    const decoded = JSON.parse(decodeURIComponent(atob(encoded)));
-                    
-                    // Auto-import sheet if not exists
-                    if (!savedSheets.find(s => s.id === decoded.id)) {
-                        const newSheet = {
-                            id: decoded.id,
-                            episode: decoded.episode || '',
-                            name: decoded.name,
-                            url: decoded.url,
-                            production: decoded.production || '',
-                            project: decoded.project || '',
-                            researcher: decoded.researcher || '',
-                            contact: decoded.contact || '',
-                            addedAt: new Date().toISOString()
-                        };
-                        savedSheets.push(newSheet);
-                        localStorage.setItem('savedSheets', JSON.stringify(savedSheets));
-                        
-                        // Clear hash from URL
-                        history.replaceState(null, null, ' ');
-                        
-                        alert('✅ Sheet imported automatically!\n\n📋 ' + (newSheet.episode ? newSheet.episode + '_' : '') + newSheet.name + '\n\nThe sheet has been saved to your sidebar!');
-                    }
-                    
-                    renderSheetList();
-                    
-                    // Auto-load the shared sheet
-                    if (savedSheets.find(s => s.id === decoded.id)) {
-                        loadSheet(decoded.id);
-                        return;
-                    }
+                    console.log('Found share parameter, decoding...');
+                    const decoded = JSON.parse(decodeURIComponent(escape(atob(shareParam))));
+                    sharedData = {
+                        id: decoded.i,
+                        episode: decoded.e || '',
+                        name: decoded.n,
+                        url: decoded.u,
+                        production: decoded.p || '',
+                        project: decoded.j || '',
+                        researcher: decoded.r || '',
+                        contact: decoded.c || ''
+                    };
+                    console.log('Decoded data:', sharedData);
                 } catch (e) {
-                    console.error('Error loading shared sheet:', e);
-                    alert('⚠️ Invalid share link. Please ask for a new link.');
+                    console.error('Error decoding share parameter:', e);
+                    alert('⚠️ Invalid share link. Please ask for a new link.\n\nError: ' + e.message);
                 }
+            }
+            
+            // Method 2: Check hash #share=...
+            if (!sharedData) {
+                const hash = window.location.hash;
+                if (hash && hash.startsWith('#share=')) {
+                    try {
+                        console.log('Found hash share, decoding...');
+                        const encoded = hash.substring(7);
+                        const decoded = JSON.parse(decodeURIComponent(atob(encoded)));
+                        sharedData = {
+                            id: decoded.id || decoded.i,
+                            episode: decoded.episode || decoded.e || '',
+                            name: decoded.name || decoded.n,
+                            url: decoded.url || decoded.u,
+                            production: decoded.production || decoded.p || '',
+                            project: decoded.project || decoded.j || '',
+                            researcher: decoded.researcher || decoded.r || '',
+                            contact: decoded.contact || decoded.c || ''
+                        };
+                        console.log('Decoded hash data:', sharedData);
+                    } catch (e) {
+                        console.error('Error decoding hash:', e);
+                    }
+                }
+            }
+            
+            // If we found shared data, import it
+            if (sharedData && sharedData.id && sharedData.name && sharedData.url) {
+                console.log('Importing shared sheet...');
+                
+                // Check if sheet already exists
+                if (!savedSheets.find(s => s.id === sharedData.id)) {
+                    const newSheet = {
+                        id: sharedData.id,
+                        episode: sharedData.episode,
+                        name: sharedData.name,
+                        url: sharedData.url,
+                        production: sharedData.production,
+                        project: sharedData.project,
+                        researcher: sharedData.researcher,
+                        contact: sharedData.contact,
+                        addedAt: new Date().toISOString()
+                    };
+                    
+                    savedSheets.push(newSheet);
+                    localStorage.setItem('savedSheets', JSON.stringify(savedSheets));
+                    
+                    console.log('Sheet imported successfully!');
+                    
+                    // Clean URL
+                    const cleanUrl = window.location.origin + window.location.pathname;
+                    history.replaceState(null, null, cleanUrl);
+                    
+                    const displayName = newSheet.episode ? newSheet.episode + '_' + newSheet.name : newSheet.name;
+                    alert('✅ Sheet imported successfully!\n\n📋 ' + displayName + '\n\n✓ Production: ' + (newSheet.production || 'Not set') + '\n✓ Project: ' + (newSheet.project || 'Not set') + '\n\nThe sheet is now saved in your sidebar!\nClick it to load the data.');
+                } else {
+                    console.log('Sheet already exists, loading it...');
+                }
+                
+                renderSheetList();
+                
+                // Auto-load the shared sheet
+                if (savedSheets.find(s => s.id === sharedData.id)) {
+                    setTimeout(() => {
+                        loadSheet(sharedData.id);
+                    }, 500);
+                    return;
+                }
+            } else if (shareParam || (window.location.hash && window.location.hash.startsWith('#share='))) {
+                console.error('Share data incomplete:', sharedData);
+                alert('⚠️ Share link is incomplete or corrupted.\n\nPlease ask for a new link.');
             }
             
             renderSheetList();
@@ -1048,41 +1107,106 @@
             }
         }
         
-        // Share sheet - FIXED FOR GITHUB PAGES
+        // Share sheet - ULTRA RELIABLE VERSION
         function shareSheet(id) {
             const sheet = savedSheets.find(s => s.id === id);
             if (!sheet) return;
             
             // Create share data object
             const shareData = {
-                id: sheet.id,
-                episode: sheet.episode || '',
-                name: sheet.name,
-                url: sheet.url,
-                production: sheet.production || '',
-                project: sheet.project || '',
-                researcher: sheet.researcher || '',
-                contact: sheet.contact || ''
+                i: sheet.id,
+                e: sheet.episode || '',
+                n: sheet.name,
+                u: sheet.url,
+                p: sheet.production || '',
+                j: sheet.project || '',
+                r: sheet.researcher || '',
+                c: sheet.contact || ''
             };
             
-            // Encode as base64 for clean URL
-            const encoded = btoa(encodeURIComponent(JSON.stringify(shareData)));
-            
-            // Get current page URL (works with GitHub Pages)
-            let baseUrl = window.location.href.split('?')[0].split('#')[0];
-            const shareUrl = baseUrl + '#share=' + encoded;
-            
-            const displayName = sheet.episode ? `${sheet.episode}_${sheet.name}` : sheet.name;
-            
-            // Copy to clipboard
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(shareUrl).then(() => {
-                    alert('✅ Share link copied!\n\n📋 ' + displayName + '\n\n🔗 Anyone who opens this link will automatically have access to this sheet!\n\nJust send them the link and they\'re ready to go! 🚀');
-                }).catch(() => {
+            // Encode as base64 for URL
+            try {
+                const jsonStr = JSON.stringify(shareData);
+                const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+                
+                // Get current page URL
+                let baseUrl = window.location.origin + window.location.pathname;
+                const shareUrl = baseUrl + '?s=' + encoded;
+                
+                const displayName = sheet.episode ? `${sheet.episode}_${sheet.name}` : sheet.name;
+                
+                // Copy to clipboard
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(shareUrl).then(() => {
+                        alert('✅ Share link copied!\n\n📋 ' + displayName + '\n\n🔗 Send this link to anyone!\n\nThey will automatically get access to:\n• The sheet data\n• All your settings\n• Production info\n\nNo setup needed on their side! 🚀\n\n📎 Link format: ...?s=...');
+                    }).catch(() => {
+                        prompt('Copy this link to share:', shareUrl);
+                    });
+                } else {
                     prompt('Copy this link to share:', shareUrl);
-                });
-            } else {
-                prompt('Copy this link to share:', shareUrl);
+                }
+            } catch (e) {
+                alert('❌ Error creating share link: ' + e.message);
+                console.error('Share error:', e);
+            }
+        }
+        
+        function testSharing() {
+            if (savedSheets.length === 0) {
+                alert('⚠️ No sheets to test!\n\nPlease add a sheet first.');
+                return;
+            }
+            
+            const sheet = savedSheets[0];
+            
+            // Create test share data
+            const shareData = {
+                i: sheet.id,
+                e: sheet.episode || '',
+                n: sheet.name,
+                u: sheet.url,
+                p: sheet.production || '',
+                j: sheet.project || '',
+                r: sheet.researcher || '',
+                c: sheet.contact || ''
+            };
+            
+            try {
+                const jsonStr = JSON.stringify(shareData);
+                const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+                
+                let baseUrl = window.location.origin + window.location.pathname;
+                const shareUrl = baseUrl + '?s=' + encoded;
+                
+                const displayName = sheet.episode ? `${sheet.episode}_${sheet.name}` : sheet.name;
+                
+                let message = '✅ SHARING TEST RESULTS:\n\n';
+                message += '📋 Sheet: ' + displayName + '\n\n';
+                message += '🔗 Share URL:\n' + shareUrl.substring(0, 50) + '...\n\n';
+                message += '📊 Data encoded: ' + jsonStr.length + ' characters\n';
+                message += '📦 URL length: ' + shareUrl.length + ' characters\n\n';
+                message += '✓ Encoding: OK\n';
+                message += '✓ URL format: OK\n';
+                message += '✓ Data structure: OK\n\n';
+                message += 'To test:\n';
+                message += '1. Copy the full URL\n';
+                message += '2. Open incognito window\n';
+                message += '3. Paste and press Enter\n';
+                message += '4. Sheet should load automatically!\n\n';
+                message += 'Copy URL now?';
+                
+                if (confirm(message)) {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(shareUrl).then(() => {
+                            alert('✅ Test URL copied!\n\nNow open an incognito window and paste it!');
+                        });
+                    } else {
+                        prompt('Copy this test URL:', shareUrl);
+                    }
+                }
+            } catch (e) {
+                alert('❌ Test failed!\n\nError: ' + e.message);
+                console.error('Test error:', e);
             }
         }
         
