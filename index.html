@@ -889,6 +889,14 @@
             </div>
         </div>
         
+        <!-- Header Info Display on Page -->
+        <div id="headerInfoDisplay" style="display: none; padding: 20px 40px; background: #f8f9fa; border-bottom: 2px solid #e9ecef;">
+            <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea;">
+                <h3 style="color: #667eea; margin-bottom: 15px;">📋 Sheet Information</h3>
+                <div id="headerInfoContent" style="line-height: 1.8; color: #495057;"></div>
+            </div>
+        </div>
+        
         <div class="controls">
             <div class="control-group">
                 <label for="searchInput">🔍 Search</label>
@@ -1200,11 +1208,43 @@
             // Update active sheet display
             document.getElementById('activeSheetDisplay').textContent = '📂 Active: ' + currentSheetName;
             
+            // Update header info display on page
+            updateHeaderInfoDisplay();
+            
             document.getElementById('appsScriptUrl').value = sheet.url;
             renderSheetList();
             closeSidebar();
             
             refreshData();
+        }
+        
+        function updateHeaderInfoDisplay() {
+            const display = document.getElementById('headerInfoDisplay');
+            const content = document.getElementById('headerInfoContent');
+            
+            if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
+                let html = '';
+                if (currentSheetInfo.production) {
+                    html += '<div><strong>Production company:</strong> ' + currentSheetInfo.production + '</div>';
+                }
+                if (currentSheetInfo.project) {
+                    html += '<div><strong>Film project:</strong> ' + currentSheetInfo.project + '</div>';
+                }
+                if (currentSheetInfo.episode || currentSheetInfo.name) {
+                    const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
+                    html += '<div><strong>Episode:</strong> ' + episodeName + '</div>';
+                }
+                if (currentSheetInfo.researcher) {
+                    html += '<div><strong>Researcher:</strong> ' + currentSheetInfo.researcher + '</div>';
+                }
+                if (currentSheetInfo.contact) {
+                    html += '<div><strong>Contact:</strong> ' + currentSheetInfo.contact + '</div>';
+                }
+                content.innerHTML = html;
+                display.style.display = 'block';
+            } else {
+                display.style.display = 'none';
+            }
         }
         
         function testConnection() {
@@ -1574,8 +1614,6 @@
             html += 'td { padding: 8px; border: 1px solid #ccc; }';
             html += 'tr:nth-child(even) { background-color: #fafafa; }';
             html += '.main-title { font-size: 18pt; font-weight: bold; color: #667eea; margin-bottom: 20px; padding: 15px; background: #f0f0f0; border-radius: 8px; text-align: center; }';
-            html += '.header-info { background: #f8f9fa; padding: 15px; margin-bottom: 20px; border-left: 4px solid #667eea; line-height: 1.8; }';
-            html += '.header-info strong { color: #667eea; display: inline-block; width: 180px; }';
             html += '.archive-name { font-weight: bold; margin-top: 15px; margin-bottom: 5px; font-size: 12pt; }';
             html += '.total-row { background: #e8e8e8; font-weight: bold; }';
             html += '.section-title { font-weight: bold; font-size: 13pt; margin: 20px 0 10px 0; padding: 8px; background: #f5f5f5; border-left: 4px solid #666; }';
@@ -1589,24 +1627,31 @@
             
             // Add header information
             if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
-                html += '<div class="header-info">';
+                html += '<table style="width: 100%; margin-bottom: 20px; border: 2px solid #667eea; background: #f8f9fa;">';
+                html += '<tr style="background: #667eea;"><td colspan="2" style="padding: 12px; color: white; font-weight: bold; font-size: 14pt;">Sheet Information</td></tr>';
+                
                 if (currentSheetInfo.production) {
-                    html += '<div><strong>Production company:</strong> ' + currentSheetInfo.production + '</div>';
+                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; width: 200px; border: 1px solid #dee;">Production company:</td>';
+                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.production + '</td></tr>';
                 }
                 if (currentSheetInfo.project) {
-                    html += '<div><strong>Film project:</strong> ' + currentSheetInfo.project + '</div>';
+                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Film project:</td>';
+                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.project + '</td></tr>';
                 }
                 if (currentSheetInfo.episode || currentSheetInfo.name) {
                     const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
-                    html += '<div><strong>Episode:</strong> ' + episodeName + '</div>';
+                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Episode:</td>';
+                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + episodeName + '</td></tr>';
                 }
                 if (currentSheetInfo.researcher) {
-                    html += '<div><strong>Researcher:</strong> ' + currentSheetInfo.researcher + '</div>';
+                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Researcher:</td>';
+                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.researcher + '</td></tr>';
                 }
                 if (currentSheetInfo.contact) {
-                    html += '<div><strong>Contact:</strong> ' + currentSheetInfo.contact + '</div>';
+                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Contact:</td>';
+                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.contact + '</td></tr>';
                 }
-                html += '</div>';
+                html += '</table>';
             }
             
             if (videoData.length > 0) {
@@ -1705,8 +1750,6 @@
             html += '.section-title { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; font-size: 1.5em; font-weight: bold; margin: 30px 0 20px 0; border-radius: 8px; }';
             html += '.section-title.stills { background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); }';
             html += '.main-title { font-size: 24pt; font-weight: bold; color: white; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin-bottom: 30px; padding: 25px; border-radius: 12px; text-align: center; }';
-            html += '.header-info { background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%); padding: 20px; margin-bottom: 30px; border-left: 4px solid #667eea; line-height: 2; border-radius: 8px; }';
-            html += '.header-info strong { color: #667eea; display: inline-block; width: 200px; }';
             html += '.summary { background: #f8f9fa; padding: 20px; margin-bottom: 30px; border-radius: 8px; border: 2px solid #667eea; }';
             html += '.summary h2 { color: #667eea; margin-bottom: 15px; }';
             html += '.summary-row { display: flex; justify-content: space-between; margin: 10px 0; }';
@@ -1722,24 +1765,31 @@
             
             // Add header information
             if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
-                html += '<div class="header-info">';
+                html += '<table style="width: 100%; margin-bottom: 20px; border: 2px solid #667eea; background: #f8f9fa;">';
+                html += '<tr style="background: #667eea;"><td colspan="2" style="padding: 12px; color: white; font-weight: bold; font-size: 14pt;">Sheet Information</td></tr>';
+                
                 if (currentSheetInfo.production) {
-                    html += '<div><strong>Production company:</strong> ' + currentSheetInfo.production + '</div>';
+                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; width: 200px; border: 1px solid #dee;">Production company:</td>';
+                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.production + '</td></tr>';
                 }
                 if (currentSheetInfo.project) {
-                    html += '<div><strong>Film project:</strong> ' + currentSheetInfo.project + '</div>';
+                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Film project:</td>';
+                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.project + '</td></tr>';
                 }
                 if (currentSheetInfo.episode || currentSheetInfo.name) {
                     const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
-                    html += '<div><strong>Episode:</strong> ' + episodeName + '</div>';
+                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Episode:</td>';
+                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + episodeName + '</td></tr>';
                 }
                 if (currentSheetInfo.researcher) {
-                    html += '<div><strong>Researcher:</strong> ' + currentSheetInfo.researcher + '</div>';
+                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Researcher:</td>';
+                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.researcher + '</td></tr>';
                 }
                 if (currentSheetInfo.contact) {
-                    html += '<div><strong>Contact:</strong> ' + currentSheetInfo.contact + '</div>';
+                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Contact:</td>';
+                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.contact + '</td></tr>';
                 }
-                html += '</div>';
+                html += '</table>';
             }
             
             html += '<div class="summary">';
