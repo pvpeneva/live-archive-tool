@@ -889,7 +889,6 @@
             </div>
         </div>
         
-        <!-- Header Info Display on Page -->
         <div id="headerInfoDisplay" style="display: none; padding: 20px 40px; background: #f8f9fa; border-bottom: 2px solid #e9ecef;">
             <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea;">
                 <h3 style="color: #667eea; margin-bottom: 15px;">📋 Sheet Information</h3>
@@ -959,50 +958,59 @@
         let currentSheetName = '';
         let currentSheetInfo = {};
         
+        // Load saved sheets on startup - FIXED FOR GITHUB PAGES
         function loadSavedSheets() {
             const saved = localStorage.getItem('savedSheets');
             savedSheets = saved ? JSON.parse(saved) : [];
             
-            // Check URL parameters for auto-import and auto-load
-            const urlParams = new URLSearchParams(window.location.search);
-            const sheetId = urlParams.get('sheet');
-            const episode = urlParams.get('episode');
-            const name = urlParams.get('name');
-            const url = urlParams.get('url');
-            const production = urlParams.get('production');
-            const project = urlParams.get('project');
-            const researcher = urlParams.get('researcher');
-            const contact = urlParams.get('contact');
-            
-            // Auto-import sheet if not exists
-            if (sheetId && name && url && !savedSheets.find(s => s.id === sheetId)) {
-                const newSheet = {
-                    id: sheetId,
-                    episode: decodeURIComponent(episode || ''),
-                    name: decodeURIComponent(name),
-                    url: decodeURIComponent(url),
-                    production: decodeURIComponent(production || ''),
-                    project: decodeURIComponent(project || ''),
-                    researcher: decodeURIComponent(researcher || ''),
-                    contact: decodeURIComponent(contact || ''),
-                    addedAt: new Date().toISOString()
-                };
-                savedSheets.push(newSheet);
-                localStorage.setItem('savedSheets', JSON.stringify(savedSheets));
-                alert('✅ Sheet imported automatically!\n\n' + (newSheet.episode ? newSheet.episode + '_' : '') + newSheet.name);
+            // Check for shared sheet in URL hash (works with GitHub Pages!)
+            const hash = window.location.hash;
+            if (hash && hash.startsWith('#share=')) {
+                try {
+                    const encoded = hash.substring(7); // Remove #share=
+                    const decoded = JSON.parse(decodeURIComponent(atob(encoded)));
+                    
+                    // Auto-import sheet if not exists
+                    if (!savedSheets.find(s => s.id === decoded.id)) {
+                        const newSheet = {
+                            id: decoded.id,
+                            episode: decoded.episode || '',
+                            name: decoded.name,
+                            url: decoded.url,
+                            production: decoded.production || '',
+                            project: decoded.project || '',
+                            researcher: decoded.researcher || '',
+                            contact: decoded.contact || '',
+                            addedAt: new Date().toISOString()
+                        };
+                        savedSheets.push(newSheet);
+                        localStorage.setItem('savedSheets', JSON.stringify(savedSheets));
+                        
+                        // Clear hash from URL
+                        history.replaceState(null, null, ' ');
+                        
+                        alert('✅ Sheet imported automatically!\n\n📋 ' + (newSheet.episode ? newSheet.episode + '_' : '') + newSheet.name + '\n\nThe sheet has been saved to your sidebar!');
+                    }
+                    
+                    renderSheetList();
+                    
+                    // Auto-load the shared sheet
+                    if (savedSheets.find(s => s.id === decoded.id)) {
+                        loadSheet(decoded.id);
+                        return;
+                    }
+                } catch (e) {
+                    console.error('Error loading shared sheet:', e);
+                    alert('⚠️ Invalid share link. Please ask for a new link.');
+                }
             }
             
             renderSheetList();
             
-            // Auto-load sheet from URL parameter
-            if (sheetId && savedSheets.find(s => s.id === sheetId)) {
-                loadSheet(sheetId);
-            } else {
-                // Load last active sheet
-                const lastActive = localStorage.getItem('lastActiveSheet');
-                if (lastActive && savedSheets.find(s => s.id === lastActive)) {
-                    loadSheet(lastActive);
-                }
+            // Load last active sheet
+            const lastActive = localStorage.getItem('lastActiveSheet');
+            if (lastActive && savedSheets.find(s => s.id === lastActive)) {
+                loadSheet(lastActive);
             }
         }
         
@@ -1040,13 +1048,14 @@
             }
         }
         
+        // Share sheet - FIXED FOR GITHUB PAGES
         function shareSheet(id) {
             const sheet = savedSheets.find(s => s.id === id);
             if (!sheet) return;
             
-            // Create share URL with all parameters
-            const params = new URLSearchParams({
-                sheet: sheet.id,
+            // Create share data object
+            const shareData = {
+                id: sheet.id,
                 episode: sheet.episode || '',
                 name: sheet.name,
                 url: sheet.url,
@@ -1054,9 +1063,15 @@
                 project: sheet.project || '',
                 researcher: sheet.researcher || '',
                 contact: sheet.contact || ''
-            });
+            };
             
-            const shareUrl = window.location.origin + window.location.pathname + '?' + params.toString();
+            // Encode as base64 for clean URL
+            const encoded = btoa(encodeURIComponent(JSON.stringify(shareData)));
+            
+            // Get current page URL (works with GitHub Pages)
+            let baseUrl = window.location.href.split('?')[0].split('#')[0];
+            const shareUrl = baseUrl + '#share=' + encoded;
+            
             const displayName = sheet.episode ? `${sheet.episode}_${sheet.name}` : sheet.name;
             
             // Copy to clipboard
@@ -1205,10 +1220,7 @@
             };
             localStorage.setItem('lastActiveSheet', id);
             
-            // Update active sheet display
             document.getElementById('activeSheetDisplay').textContent = '📂 Active: ' + currentSheetName;
-            
-            // Update header info display on page
             updateHeaderInfoDisplay();
             
             document.getElementById('appsScriptUrl').value = sheet.url;
@@ -1620,12 +1632,10 @@
             html += 'a { color: #0066cc; text-decoration: none; }';
             html += '</style></head><body>';
             
-            // Add main title with sheet name
             if (currentSheetName) {
                 html += '<div class="main-title">📽️ ' + currentSheetName + '</div>';
             }
             
-            // Add header information
             if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
                 html += '<table style="width: 100%; margin-bottom: 20px; border: 2px solid #667eea; background: #f8f9fa;">';
                 html += '<tr style="background: #667eea;"><td colspan="2" style="padding: 12px; color: white; font-weight: bold; font-size: 14pt;">Sheet Information</td></tr>';
@@ -1758,12 +1768,10 @@
             html += 'a { color: #667eea; text-decoration: none; }';
             html += '</style></head><body>';
             
-            // Add main title with sheet name
             if (currentSheetName) {
                 html += '<div class="main-title">📽️ ' + currentSheetName + '</div>';
             }
             
-            // Add header information
             if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
                 html += '<table style="width: 100%; margin-bottom: 20px; border: 2px solid #667eea; background: #f8f9fa;">';
                 html += '<tr style="background: #667eea;"><td colspan="2" style="padding: 12px; color: white; font-weight: bold; font-size: 14pt;">Sheet Information</td></tr>';
@@ -1869,13 +1877,11 @@
         }
         
         function copyFormattedContent(html) {
-            // Create a temporary container
             const container = document.createElement('div');
             container.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
             container.innerHTML = html;
             document.body.appendChild(container);
             
-            // Select the content
             const range = document.createRange();
             range.selectNodeContents(container);
             const selection = window.getSelection();
@@ -1883,10 +1889,8 @@
             selection.addRange(range);
             
             try {
-                // Copy the selected content
                 const successful = document.execCommand('copy');
                 
-                // Clean up
                 selection.removeAllRanges();
                 document.body.removeChild(container);
                 
@@ -1896,7 +1900,6 @@
                     throw new Error('Copy command failed');
                 }
             } catch (err) {
-                // Clean up on error
                 if (document.body.contains(container)) {
                     document.body.removeChild(container);
                 }
