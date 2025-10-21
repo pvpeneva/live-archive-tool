@@ -508,17 +508,19 @@
             display: flex;
             gap: 10px;
             margin-top: 10px;
+            flex-wrap: wrap;
         }
         
         .btn {
-            padding: 12px 24px;
+            padding: 12px 20px;
             border: none;
             border-radius: 8px;
-            font-size: 1em;
+            font-size: 0.95em;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
             flex: 1;
+            min-width: 140px;
         }
         
         .btn-primary {
@@ -538,6 +540,16 @@
         
         .btn-secondary:hover {
             background: #dee2e6;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
         }
         
         .section-divider {
@@ -697,7 +709,6 @@
 <body>
     <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
     
-    <!-- Sidebar -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <h2>📚 My Sheets</h2>
@@ -705,9 +716,7 @@
         </div>
         <div class="sidebar-content">
             <button class="add-sheet-btn" onclick="showAddSheetModal()">+ Add New Sheet</button>
-            <ul class="sheet-list" id="sheetList">
-                <!-- Sheets will be populated here -->
-            </ul>
+            <ul class="sheet-list" id="sheetList"></ul>
             <div class="empty-state" id="emptyState">
                 <div class="empty-state-icon">📋</div>
                 <p>No sheets saved yet</p>
@@ -716,7 +725,6 @@
         </div>
     </div>
     
-    <!-- Add/Edit Sheet Modal -->
     <div class="modal" id="sheetModal">
         <div class="modal-content">
             <div class="modal-header" id="modalTitle">Add New Sheet</div>
@@ -907,7 +915,8 @@
             <div class="button-group">
                 <button class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
                 <button class="btn btn-secondary" onclick="resetFilters()">Reset All</button>
-                <button class="btn btn-secondary" onclick="copyToEmail(event)">📋 Copy for Email</button>
+                <button class="btn btn-success" onclick="copyPlainText()">📋 Copy Plain Text</button>
+                <button class="btn btn-success" onclick="copyAsTable()">📊 Copy as Table</button>
                 <button class="btn btn-secondary" onclick="window.print()">🖨️ Print</button>
             </div>
         </div>
@@ -929,13 +938,11 @@
         let currentSheetId = null;
         let editingSheetId = null;
         
-        // Load saved sheets on startup
         function loadSavedSheets() {
             const saved = localStorage.getItem('savedSheets');
             savedSheets = saved ? JSON.parse(saved) : [];
             renderSheetList();
             
-            // Load last active sheet
             const lastActive = localStorage.getItem('lastActiveSheet');
             if (lastActive && savedSheets.find(s => s.id === lastActive)) {
                 loadSheet(lastActive);
@@ -1422,13 +1429,12 @@
             document.getElementById('stillsArchives').textContent = stillsData.length;
         }
         
-        function copyToEmail() {
-            // Use archiveData if filteredData is empty
+        // COPY AS PLAIN TEXT (ASCII Table format)
+        function copyPlainText() {
             const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
             
-            // Check if there's data to copy
             if (!dataToUse || dataToUse.length === 0) {
-                alert('⚠️ No data to copy!\n\nPlease:\n1. Click the ☰ menu\n2. Select a sheet\n3. Wait for data to load\n4. Then try copying again');
+                alert('⚠️ No data to copy!\n\nPlease load a sheet first.');
                 return;
             }
             
@@ -1439,239 +1445,233 @@
             const totalFrames = videoData.reduce((sum, a) => sum + a.totalFrames, 0);
             const videoDuration = framesToTimecode(totalFrames);
             
-            // Create HTML table
-            let html = '<div style="font-family: Arial, sans-serif;">';
+            let text = '═══════════════════════════════════════════════════════════════════\n';
+            text += 'ARCHIVE REPORT SUMMARY\n';
+            text += '═══════════════════════════════════════════════════════════════════\n\n';
             
-            // Summary Stats Table
-            html += '<table style="border-collapse: collapse; width: 100%; margin-bottom: 30px; border: 2px solid #667eea;">';
-            html += '<thead><tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">';
-            html += '<th colspan="2" style="padding: 15px; text-align: center; font-size: 18px; border: 1px solid #667eea;">📊 ARCHIVE REPORT SUMMARY</th>';
-            html += '</tr></thead><tbody>';
+            text += 'VIDEO CLIPS: ' + videoClips + '  |  VIDEO ARCHIVES: ' + videoData.length + '  |  TOTAL DURATION: ' + videoDuration + '\n';
+            text += 'STILLS: ' + stillsCount + '  |  STILLS ARCHIVES: ' + stillsData.length + '\n\n';
             
-            html += '<tr style="background: #f8f9fa;"><td style="padding: 10px; border: 1px solid #dee2e6; font-weight: bold;">📹 Video Clips</td><td style="padding: 10px; border: 1px solid #dee2e6;">' + videoClips + '</td></tr>';
-            html += '<tr style="background: white;"><td style="padding: 10px; border: 1px solid #dee2e6; font-weight: bold;">📹 Video Archives</td><td style="padding: 10px; border: 1px solid #dee2e6;">' + videoData.length + '</td></tr>';
-            html += '<tr style="background: #f8f9fa;"><td style="padding: 10px; border: 1px solid #dee2e6; font-weight: bold;">⏱️ Video Duration</td><td style="padding: 10px; border: 1px solid #dee2e6; font-family: monospace; font-weight: bold; color: #667eea;">' + videoDuration + '</td></tr>';
-            html += '<tr style="background: white;"><td style="padding: 10px; border: 1px solid #dee2e6; font-weight: bold;">📷 Stills/Images</td><td style="padding: 10px; border: 1px solid #dee2e6;">' + stillsCount + '</td></tr>';
-            html += '<tr style="background: #f8f9fa;"><td style="padding: 10px; border: 1px solid #dee2e6; font-weight: bold;">📷 Stills Archives</td><td style="padding: 10px; border: 1px solid #dee2e6;">' + stillsData.length + '</td></tr>';
+            text += '═══════════════════════════════════════════════════════════════════\n\n';
             
-            html += '</tbody></table>';
-            
-            // Video Archives Tables
-            if (videoData.length > 0) {
-                html += '<h2 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; margin: 30px 0 20px 0; border-radius: 8px; text-align: center;">🎬 VIDEO CLIPS</h2>';
-                
-                videoData.forEach(function(archive) {
-                    html += '<h3 style="background: #667eea; color: white; padding: 12px; margin: 20px 0 0 0; border-radius: 5px 5px 0 0;">📁 ' + archive.name + ' (' + archive.clips.length + ' clips)</h3>';
-                    
-                    html += '<table style="border-collapse: collapse; width: 100%; margin-bottom: 30px; border: 2px solid #667eea;">';
-                    html += '<thead><tr style="background: #f8f9fa;">';
-                    html += '<th style="padding: 12px; border: 1px solid #dee2e6; text-align: left;">#</th>';
-                    html += '<th style="padding: 12px; border: 1px solid #dee2e6; text-align: left;">ID</th>';
-                    html += '<th style="padding: 12px; border: 1px solid #dee2e6; text-align: left;">Inv No</th>';
-                    html += '<th style="padding: 12px; border: 1px solid #dee2e6; text-align: left;">File Name</th>';
-                    html += '<th style="padding: 12px; border: 1px solid #dee2e6; text-align: left;">Source In</th>';
-                    html += '<th style="padding: 12px; border: 1px solid #dee2e6; text-align: left;">Source Out</th>';
-                    html += '<th style="padding: 12px; border: 1px solid #dee2e6; text-align: left;">Duration</th>';
-                    html += '<th style="padding: 12px; border: 1px solid #dee2e6; text-align: left;">Link</th>';
-                    html += '</tr></thead><tbody>';
-                    
-                    archive.clips.forEach(function(clip, i) {
-                        const rowBg = i % 2 === 0 ? 'white' : '#f8f9fa';
-                        html += '<tr style="background: ' + rowBg + ';">';
-                        html += '<td style="padding: 10px; border: 1px solid #dee2e6;">' + (i + 1) + '</td>';
-                        html += '<td style="padding: 10px; border: 1px solid #dee2e6;">' + (clip.id || '—') + '</td>';
-                        html += '<td style="padding: 10px; border: 1px solid #dee2e6;">' + (clip.invNo || '—') + '</td>';
-                        html += '<td style="padding: 10px; border: 1px solid #dee2e6;">' + (clip.fileName || '—') + '</td>';
-                        html += '<td style="padding: 10px; border: 1px solid #dee2e6; font-family: monospace;">' + (clip.sourceIn || '—') + '</td>';
-                        html += '<td style="padding: 10px; border: 1px solid #dee2e6; font-family: monospace;">' + (clip.sourceOut || '—') + '</td>';
-                        html += '<td style="padding: 10px; border: 1px solid #dee2e6; font-family: monospace; font-weight: bold; color: #667eea;">' + clip.duration + '</td>';
-                        html += '<td style="padding: 10px; border: 1px solid #dee2e6;">' + (clip.link ? '<a href="' + clip.link + '" style="color: #667eea;">🔗 Link</a>' : '—') + '</td>';
-                        html += '</tr>';
-                    });
-                    
-                    html += '<tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: bold;">';
-                    html += '<td colspan="6" style="padding: 12px; border: 1px solid #667eea; text-align: right;">TOTAL:</td>';
-                    html += '<td style="padding: 12px; border: 1px solid #667eea; font-family: monospace; font-size: 16px;">' + archive.duration + '</td>';
-                    html += '<td style="padding: 12px; border: 1px solid #667eea;"></td>';
-                    html += '</tr>';
-                    
-                    html += '</tbody></table>';
-                });
-            }
-            
-            // Stills Archives Tables
-            if (stillsData.length > 0) {
-                html += '<h2 style="background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); color: white; padding: 15px; margin: 30px 0 20px 0; border-radius: 8px; text-align: center;">📷 STILLS / IMAGES</h2>';
-                
-                stillsData.forEach(function(archive) {
-                    html += '<h3 style="background: #ffc107; color: white; padding: 12px; margin: 20px 0 0 0; border-radius: 5px 5px 0 0;">📁 ' + archive.name + ' (' + archive.entries + ' images)</h3>';
-                    
-                    html += '<table style="border-collapse: collapse; width: 100%; margin-bottom: 30px; border: 2px solid #ffc107;">';
-                    html += '<thead><tr style="background: #fff3cd;">';
-                    html += '<th style="padding: 12px; border: 1px solid #ffc107; text-align: left;">#</th>';
-                    html += '<th style="padding: 12px; border: 1px solid #ffc107; text-align: left;">ID</th>';
-                    html += '<th style="padding: 12px; border: 1px solid #ffc107; text-align: left;">Inv No</th>';
-                    html += '<th style="padding: 12px; border: 1px solid #ffc107; text-align: left;">File Name</th>';
-                    html += '<th style="padding: 12px; border: 1px solid #ffc107; text-align: left;">Type</th>';
-                    html += '<th style="padding: 12px; border: 1px solid #ffc107; text-align: left;">Link</th>';
-                    html += '</tr></thead><tbody>';
-                    
-                    archive.clips.forEach(function(clip, i) {
-                        const rowBg = i % 2 === 0 ? 'white' : '#fff3cd';
-                        html += '<tr style="background: ' + rowBg + ';">';
-                        html += '<td style="padding: 10px; border: 1px solid #ffc107;">' + (i + 1) + '</td>';
-                        html += '<td style="padding: 10px; border: 1px solid #ffc107;">' + (clip.id || '—') + '</td>';
-                        html += '<td style="padding: 10px; border: 1px solid #ffc107;">' + (clip.invNo || '—') + '</td>';
-                        html += '<td style="padding: 10px; border: 1px solid #ffc107;">' + (clip.fileName || '—') + '</td>';
-                        html += '<td style="padding: 10px; border: 1px solid #ffc107;">Still Image</td>';
-                        html += '<td style="padding: 10px; border: 1px solid #ffc107;">' + (clip.link ? '<a href="' + clip.link + '" style="color: #ff9800;">🔗 Link</a>' : '—') + '</td>';
-                        html += '</tr>';
-                    });
-                    
-                    html += '<tr style="background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); color: white; font-weight: bold;">';
-                    html += '<td colspan="6" style="padding: 12px; border: 1px solid #ffc107;">TOTAL: ' + archive.entries + ' Still Images</td>';
-                    html += '</tr>';
-                    
-                    html += '</tbody></table>';
-                });
-            }
-            
-            html += '<p style="text-align: center; color: #6c757d; margin-top: 30px; padding-top: 20px; border-top: 2px solid #dee2e6;">';
-            html += 'Generated: ' + new Date().toLocaleString() + '<br>';
-            html += 'Source: Live Archive Report Tool';
-            html += '</p>';
-            
-            html += '</div>';
-            
-            // Copy HTML to clipboard
-            const copyAsHtml = function() {
-                const blob = new Blob([html], { type: 'text/html' });
-                const plainText = html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ');
-                
-                const clipboardItem = new ClipboardItem({
-                    'text/html': blob,
-                    'text/plain': new Blob([plainText], { type: 'text/plain' })
-                });
-                
-                navigator.clipboard.write([clipboardItem]).then(function() {
-                    alert('✅ SUCCESS!\n\nТаблицата е копирана!\n\nСега:\n1. Отвори имейла\n2. Ctrl+V (или Cmd+V)\n3. Таблицата ще се появи форматирана!');
-                }).catch(function(err) {
-                    console.error('Clipboard write failed:', err);
-                    showHtmlCopyPopup(html);
-                });
+            // Helper function to pad strings
+            const pad = (str, len) => {
+                str = str.toString();
+                return str.length >= len ? str.substring(0, len) : str + ' '.repeat(len - str.length);
             };
             
-            // Try modern clipboard API
-            if (navigator.clipboard && window.ClipboardItem) {
-                copyAsHtml();
-            } else {
-                // Fallback for older browsers
-                showHtmlCopyPopup(html);
+            if (videoData.length > 0) {
+                text += 'VIDEO ARCHIVES\n\n';
+                
+                videoData.forEach(archive => {
+                    text += archive.name + ' (' + archive.clips.length + ' clips)\n';
+                    text += '─'.repeat(130) + '\n';
+                    text += pad('#', 4) + pad('ID', 8) + pad('Inv No', 10) + pad('File Name', 45) + pad('Source In', 14) + pad('Source Out', 14) + pad('Duration', 14) + 'Link\n';
+                    text += '─'.repeat(130) + '\n';
+                    
+                    archive.clips.forEach((clip, i) => {
+                        const num = (i + 1).toString();
+                        const id = clip.id || '';
+                        const invNo = clip.invNo || '';
+                        const fileName = clip.fileName || '';
+                        const sourceIn = clip.sourceIn || '';
+                        const sourceOut = clip.sourceOut || '';
+                        const duration = clip.duration || '';
+                        const link = clip.link ? '🔗' : '';
+                        
+                        text += pad(num, 4) + pad(id, 8) + pad(invNo, 10) + pad(fileName, 45) + pad(sourceIn, 14) + pad(sourceOut, 14) + pad(duration, 14) + link + '\n';
+                    });
+                    
+                    text += '─'.repeat(130) + '\n';
+                    text += pad('TOTAL', 77) + pad('', 14) + pad('', 14) + archive.duration + '\n';
+                    text += '\n\n';
+                });
             }
+            
+            if (stillsData.length > 0) {
+                text += 'STILLS / IMAGES\n\n';
+                
+                stillsData.forEach(archive => {
+                    text += archive.name + ' (' + archive.entries + ' stills)\n';
+                    text += '─'.repeat(110) + '\n';
+                    text += pad('#', 4) + pad('ID', 8) + pad('Inv No', 10) + pad('File Name', 60) + pad('Type', 15) + 'Link\n';
+                    text += '─'.repeat(110) + '\n';
+                    
+                    archive.clips.forEach((clip, i) => {
+                        const num = (i + 1).toString();
+                        const id = clip.id || '';
+                        const invNo = clip.invNo || '';
+                        const fileName = clip.fileName || '';
+                        const link = clip.link ? '🔗' : '';
+                        
+                        text += pad(num, 4) + pad(id, 8) + pad(invNo, 10) + pad(fileName, 60) + pad('Still Image', 15) + link + '\n';
+                    });
+                    
+                    text += '─'.repeat(110) + '\n';
+                    text += 'TOTAL: ' + archive.entries + ' Still Images\n';
+                    text += '\n\n';
+                });
+            }
+            
+            text += '═══════════════════════════════════════════════════════════════════\n';
+            text += 'Generated: ' + new Date().toLocaleString() + '\n';
+            text += '═══════════════════════════════════════════════════════════════════';
+            
+            copyToClipboard(text, 'Plain Text Table');
         }
         
-        function showHtmlCopyPopup(html) {
-            // Create modal with HTML preview
-            const modal = document.createElement('div');
-            modal.style.position = 'fixed';
-            modal.style.top = '0';
-            modal.style.left = '0';
-            modal.style.width = '100%';
-            modal.style.height = '100%';
-            modal.style.background = 'rgba(0,0,0,0.8)';
-            modal.style.zIndex = '10000';
-            modal.style.display = 'flex';
-            modal.style.alignItems = 'center';
-            modal.style.justifyContent = 'center';
-            modal.style.overflow = 'auto';
+        // COPY AS TABLE (Tab-separated for Excel/Google Sheets)
+        function copyAsTable() {
+            const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
             
-            const box = document.createElement('div');
-            box.style.background = 'white';
-            box.style.padding = '30px';
-            box.style.borderRadius = '12px';
-            box.style.maxWidth = '90%';
-            box.style.maxHeight = '90vh';
-            box.style.overflow = 'auto';
+            if (!dataToUse || dataToUse.length === 0) {
+                alert('⚠️ No data to copy!\n\nPlease load a sheet first.');
+                return;
+            }
             
-            const title = document.createElement('h3');
-            title.textContent = '📋 Копирай тази таблица';
-            title.style.marginBottom = '20px';
-            title.style.color = '#667eea';
+            let tsvData = '';
             
-            const instructions = document.createElement('p');
-            instructions.innerHTML = '<strong>Как да копираш:</strong><br>1. Натисни бутона "Копирай HTML" отдолу<br>2. Или скролни надолу и селектирай таблицата с мишката<br>3. Ctrl+C (или Cmd+C) за да копираш<br>4. Затвори този прозорец<br>5. Залепи в имейла си';
-            instructions.style.marginBottom = '20px';
-            instructions.style.lineHeight = '1.8';
+            // Summary Section
+            const videoData = dataToUse.filter(a => a.type === 'video');
+            const stillsData = dataToUse.filter(a => a.type === 'stills');
+            const videoClips = videoData.reduce((sum, a) => sum + a.clips.length, 0);
+            const stillsCount = stillsData.reduce((sum, a) => sum + a.entries, 0);
+            const totalFrames = videoData.reduce((sum, a) => sum + a.totalFrames, 0);
+            const videoDuration = framesToTimecode(totalFrames);
             
-            const copyBtn = document.createElement('button');
-            copyBtn.textContent = '📋 Копирай HTML';
-            copyBtn.style.padding = '12px 30px';
-            copyBtn.style.background = '#28a745';
-            copyBtn.style.color = 'white';
-            copyBtn.style.border = 'none';
-            copyBtn.style.borderRadius = '8px';
-            copyBtn.style.cursor = 'pointer';
-            copyBtn.style.fontSize = '16px';
-            copyBtn.style.marginRight = '10px';
-            copyBtn.onclick = function() {
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = html;
-                tempDiv.style.position = 'absolute';
-                tempDiv.style.left = '-9999px';
-                document.body.appendChild(tempDiv);
+            tsvData += 'ARCHIVE REPORT SUMMARY\t\t\t\t\t\t\n';
+            tsvData += '\t\t\t\t\t\t\n';
+            tsvData += 'VIDEO CLIPS\t' + videoClips + '\t\t\t\t\t\n';
+            tsvData += 'VIDEO ARCHIVES\t' + videoData.length + '\t\t\t\t\t\n';
+            tsvData += 'VIDEO DURATION\t' + videoDuration + '\t\t\t\t\t\n';
+            tsvData += 'STILL IMAGES\t' + stillsCount + '\t\t\t\t\t\n';
+            tsvData += 'STILLS ARCHIVES\t' + stillsData.length + '\t\t\t\t\t\n';
+            tsvData += '\t\t\t\t\t\t\n';
+            
+            // Video Archives
+            if (videoData.length > 0) {
+                tsvData += 'VIDEO ARCHIVES\t\t\t\t\t\t\n';
+                tsvData += '\t\t\t\t\t\t\n';
                 
-                const range = document.createRange();
-                range.selectNodeContents(tempDiv);
-                const selection = window.getSelection();
-                selection.removeAllRanges();
-                selection.addRange(range);
+                videoData.forEach(archive => {
+                    tsvData += 'ARCHIVE\t' + archive.name + '\t\t\t\t\t\n';
+                    tsvData += '#\tID\tInv No\tFile Name\tSource In\tSource Out\tDuration\tLink\n';
+                    
+                    archive.clips.forEach((clip, i) => {
+                        tsvData += (i + 1) + '\t';
+                        tsvData += (clip.id || '') + '\t';
+                        tsvData += (clip.invNo || '') + '\t';
+                        tsvData += (clip.fileName || '') + '\t';
+                        tsvData += (clip.sourceIn || '') + '\t';
+                        tsvData += (clip.sourceOut || '') + '\t';
+                        tsvData += clip.duration + '\t';
+                        tsvData += (clip.link || '') + '\n';
+                    });
+                    
+                    tsvData += 'TOTAL\t\t\t\t\t\t' + archive.duration + '\t\n';
+                    tsvData += '\t\t\t\t\t\t\n';
+                });
+            }
+            
+            // Stills Archives
+            if (stillsData.length > 0) {
+                tsvData += 'STILLS ARCHIVES\t\t\t\t\t\t\n';
+                tsvData += '\t\t\t\t\t\t\n';
+                
+                stillsData.forEach(archive => {
+                    tsvData += 'ARCHIVE\t' + archive.name + '\t\t\t\t\t\n';
+                    tsvData += '#\tID\tInv No\tFile Name\tType\tLink\t\n';
+                    
+                    archive.clips.forEach((clip, i) => {
+                        tsvData += (i + 1) + '\t';
+                        tsvData += (clip.id || '') + '\t';
+                        tsvData += (clip.invNo || '') + '\t';
+                        tsvData += (clip.fileName || '') + '\t';
+                        tsvData += 'Still Image\t';
+                        tsvData += (clip.link || '') + '\t\n';
+                    });
+                    
+                    tsvData += 'TOTAL\t' + archive.entries + ' Still Images\t\t\t\t\n';
+                    tsvData += '\t\t\t\t\t\t\n';
+                });
+            }
+            
+            tsvData += '\t\t\t\t\t\t\n';
+            tsvData += 'Generated\t' + new Date().toLocaleString() + '\t\t\t\t\n';
+            
+            copyToClipboard(tsvData, 'Table Format');
+        }
+        
+        // Universal clipboard copy function
+        function copyToClipboard(text, formatName) {
+            const copySuccess = () => {
+                alert('✅ SUCCESS!\n\n' + formatName + ' copied to clipboard!\n\nNow:\n1. Open Excel/Sheets/Email\n2. Press Ctrl+V (or Cmd+V)\n3. Paste!');
+            };
+            
+            const copyFallback = () => {
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.cssText = 'position:fixed;top:0;left:0;width:2em;height:2em;padding:0;border:none;outline:none;box-shadow:none;background:transparent';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
                 
                 try {
-                    document.execCommand('copy');
-                    alert('✅ Копирано! Сега можеш да залепиш в имейл.');
-                    document.body.removeChild(tempDiv);
+                    const successful = document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    if (successful) {
+                        copySuccess();
+                    } else {
+                        showCopyPopup(text, formatName);
+                    }
                 } catch (err) {
-                    alert('❌ Копирането не сработи. Опитай ръчно.');
-                    document.body.removeChild(tempDiv);
+                    document.body.removeChild(textArea);
+                    showCopyPopup(text, formatName);
                 }
             };
             
-            const closeBtn = document.createElement('button');
-            closeBtn.textContent = 'Затвори';
-            closeBtn.style.padding = '12px 30px';
-            closeBtn.style.background = '#667eea';
-            closeBtn.style.color = 'white';
-            closeBtn.style.border = 'none';
-            closeBtn.style.borderRadius = '8px';
-            closeBtn.style.cursor = 'pointer';
-            closeBtn.style.fontSize = '16px';
-            closeBtn.onclick = function() {
-                document.body.removeChild(modal);
-            };
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(copySuccess).catch(copyFallback);
+            } else {
+                copyFallback();
+            }
+        }
+        
+        function showCopyPopup(text, formatName) {
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:10000;display:flex;align-items:center;justify-content:center';
             
-            const previewDiv = document.createElement('div');
-            previewDiv.innerHTML = html;
-            previewDiv.style.marginTop = '20px';
-            previewDiv.style.padding = '20px';
-            previewDiv.style.background = '#f8f9fa';
-            previewDiv.style.borderRadius = '8px';
-            previewDiv.style.maxHeight = '500px';
-            previewDiv.style.overflow = 'auto';
+            const box = document.createElement('div');
+            box.style.cssText = 'background:white;padding:30px;border-radius:12px;max-width:800px;max-height:80vh;overflow:auto';
+            
+            const title = document.createElement('h3');
+            title.textContent = '📋 Copy This ' + formatName;
+            title.style.cssText = 'margin-bottom:20px;color:#667eea';
+            
+            const instructions = document.createElement('p');
+            instructions.innerHTML = '<strong>How to copy:</strong><br>1. Click inside the box<br>2. Press Ctrl+A (or Cmd+A)<br>3. Press Ctrl+C (or Cmd+C)<br>4. Close this window<br>5. Paste into Excel/Email';
+            instructions.style.cssText = 'margin-bottom:20px;line-height:1.8';
+            
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.cssText = 'width:100%;height:400px;padding:15px;border:2px solid #667eea;border-radius:8px;font-family:monospace;font-size:12px;margin-bottom:20px';
+            
+            const closeBtn = document.createElement('button');
+            closeBtn.textContent = 'Close';
+            closeBtn.style.cssText = 'padding:12px 30px;background:#667eea;color:white;border:none;border-radius:8px;cursor:pointer;font-size:16px';
+            closeBtn.onclick = () => document.body.removeChild(modal);
             
             box.appendChild(title);
             box.appendChild(instructions);
-            box.appendChild(copyBtn);
+            box.appendChild(textArea);
             box.appendChild(closeBtn);
-            box.appendChild(previewDiv);
             modal.appendChild(box);
             document.body.appendChild(modal);
+            
+            textArea.select();
         }
         
-        window.onload = function() {
-            loadSavedSheets();
-        };
+        window.onload = () => loadSavedSheets();
     </script>
 </body>
 </html>
-
-Updated with copy-to-email feature
