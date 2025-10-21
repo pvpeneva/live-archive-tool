@@ -916,8 +916,8 @@
             <div class="button-group">
                 <button class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
                 <button class="btn btn-secondary" onclick="resetFilters()">Reset All</button>
-                <button class="btn btn-success" onclick="copyPlainText()">📋 Copy Plain Text</button>
-                <button class="btn btn-success" onclick="copyAsTable()">📊 Copy as Table</button>
+                <button class="btn btn-success" onclick="copyPlainText()">📋 Copy as Table</button>
+                <button class="btn btn-success" onclick="copyAsTable()">📊 Copy with Summary</button>
                 <button class="btn btn-secondary" onclick="window.print()">🖨️ Print</button>
             </div>
         </div>
@@ -1445,7 +1445,7 @@
             document.getElementById('stillsArchives').textContent = stillsData.length;
         }
         
-        // COPY AS PLAIN TEXT (TSV Table format for Excel/Sheets)
+        // COPY AS PLAIN TEXT (Simple TSV Table)
         function copyPlainText() {
             const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
             
@@ -1461,17 +1461,15 @@
             
             // Video archives
             if (videoData.length > 0) {
-                text += 'VIDEO ARCHIVES\n';
-                text += '\n';
+                text += 'VIDEO ARCHIVES\n\n';
                 
                 videoData.forEach(archive => {
-                    text += archive.name + ' (' + archive.clips.length + ' clips)\n';
-                    text += '\n';
+                    text += archive.name + ' (' + archive.clips.length + ' clips)\n\n';
                     
-                    // Header row
+                    // Header row with tabs
                     text += '#\tID\tInv No\tFile Name\tSource In\tSource Out\tDuration\tLink\n';
                     
-                    // Data rows
+                    // Data rows with tabs
                     archive.clips.forEach((clip, i) => {
                         text += (i + 1) + '\t';
                         text += (clip.id || '') + '\t';
@@ -1486,24 +1484,21 @@
                     // Total row
                     text += '\n';
                     text += 'TOTAL\t\t\t\t\t\t' + archive.duration + '\n';
-                    text += '\n';
-                    text += '\n';
+                    text += '\n\n';
                 });
             }
             
             // Stills archives
             if (stillsData.length > 0) {
-                text += 'STILLS / IMAGES\n';
-                text += '\n';
+                text += 'STILLS / IMAGES\n\n';
                 
                 stillsData.forEach(archive => {
-                    text += archive.name + ' (' + archive.entries + ' stills)\n';
-                    text += '\n';
+                    text += archive.name + ' (' + archive.entries + ' stills)\n\n';
                     
-                    // Header row
+                    // Header row with tabs
                     text += '#\tID\tInv No\tFile Name\tType\tLink\n';
                     
-                    // Data rows
+                    // Data rows with tabs
                     archive.clips.forEach((clip, i) => {
                         text += (i + 1) + '\t';
                         text += (clip.id || '') + '\t';
@@ -1516,15 +1511,14 @@
                     // Total row
                     text += '\n';
                     text += 'TOTAL\t' + archive.entries + ' Still Images\n';
-                    text += '\n';
-                    text += '\n';
+                    text += '\n\n';
                 });
             }
             
-            copyToClipboard(text, 'Plain Text Table');
+            copyToClipboard(text, 'Table');
         }
         
-        // COPY AS TABLE (Tab-separated for Excel/Google Sheets)
+        // COPY AS TABLE WITH FORMATTING (HTML with colors and styles)
         function copyAsTable() {
             const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
             
@@ -1533,9 +1527,6 @@
                 return;
             }
             
-            let tsvData = '';
-            
-            // Summary Section
             const videoData = dataToUse.filter(a => a.type === 'video');
             const stillsData = dataToUse.filter(a => a.type === 'stills');
             const videoClips = videoData.reduce((sum, a) => sum + a.clips.length, 0);
@@ -1543,67 +1534,145 @@
             const totalFrames = videoData.reduce((sum, a) => sum + a.totalFrames, 0);
             const videoDuration = framesToTimecode(totalFrames);
             
-            tsvData += 'ARCHIVE REPORT SUMMARY\t\t\t\t\t\t\n';
-            tsvData += '\t\t\t\t\t\t\n';
-            tsvData += 'VIDEO CLIPS\t' + videoClips + '\t\t\t\t\t\n';
-            tsvData += 'VIDEO ARCHIVES\t' + videoData.length + '\t\t\t\t\t\n';
-            tsvData += 'VIDEO DURATION\t' + videoDuration + '\t\t\t\t\t\n';
-            tsvData += 'STILL IMAGES\t' + stillsCount + '\t\t\t\t\t\n';
-            tsvData += 'STILLS ARCHIVES\t' + stillsData.length + '\t\t\t\t\t\n';
-            tsvData += '\t\t\t\t\t\t\n';
+            // Create HTML with full styling
+            let html = '<html><head><style>';
+            html += 'body { font-family: Arial, sans-serif; }';
+            html += 'table { border-collapse: collapse; width: 100%; margin-bottom: 30px; }';
+            html += 'th { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px; text-align: left; font-weight: bold; border: 1px solid #ddd; }';
+            html += 'td { padding: 10px; border: 1px solid #ddd; }';
+            html += 'tr:nth-child(even) { background-color: #f8f9fa; }';
+            html += 'tr:hover { background-color: #e9ecef; }';
+            html += '.total-row { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: bold; }';
+            html += '.total-row.stills { background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); }';
+            html += '.archive-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; margin-top: 20px; font-size: 1.2em; font-weight: bold; border-radius: 8px 8px 0 0; }';
+            html += '.archive-header.stills { background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); }';
+            html += '.section-title { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; font-size: 1.5em; font-weight: bold; margin: 30px 0 20px 0; border-radius: 8px; }';
+            html += '.section-title.stills { background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); }';
+            html += '.summary { background: #f8f9fa; padding: 20px; margin-bottom: 30px; border-radius: 8px; border: 2px solid #667eea; }';
+            html += '.summary h2 { color: #667eea; margin-bottom: 15px; }';
+            html += '.summary-row { display: flex; justify-content: space-between; margin: 10px 0; }';
+            html += '.summary-label { font-weight: bold; color: #495057; }';
+            html += '.summary-value { color: #667eea; font-weight: bold; }';
+            html += 'a { color: #667eea; text-decoration: none; }';
+            html += '</style></head><body>';
             
-            // Video Archives
+            // Summary section
+            html += '<div class="summary">';
+            html += '<h2>📊 ARCHIVE REPORT SUMMARY</h2>';
+            html += '<div class="summary-row"><span class="summary-label">Video Clips:</span><span class="summary-value">' + videoClips + '</span></div>';
+            html += '<div class="summary-row"><span class="summary-label">Video Archives:</span><span class="summary-value">' + videoData.length + '</span></div>';
+            html += '<div class="summary-row"><span class="summary-label">Total Duration:</span><span class="summary-value">' + videoDuration + '</span></div>';
+            html += '<div class="summary-row"><span class="summary-label">Still Images:</span><span class="summary-value">' + stillsCount + '</span></div>';
+            html += '<div class="summary-row"><span class="summary-label">Stills Archives:</span><span class="summary-value">' + stillsData.length + '</span></div>';
+            html += '</div>';
+            
+            // Video archives
             if (videoData.length > 0) {
-                tsvData += 'VIDEO ARCHIVES\t\t\t\t\t\t\n';
-                tsvData += '\t\t\t\t\t\t\n';
+                html += '<div class="section-title">🎬 VIDEO ARCHIVES</div>';
                 
                 videoData.forEach(archive => {
-                    tsvData += 'ARCHIVE\t' + archive.name + '\t\t\t\t\t\n';
-                    tsvData += '#\tID\tInv No\tFile Name\tSource In\tSource Out\tDuration\tLink\n';
+                    html += '<div class="archive-header">' + archive.name + ' (' + archive.clips.length + ' clips)</div>';
+                    html += '<table>';
+                    html += '<thead><tr>';
+                    html += '<th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Source In</th><th>Source Out</th><th>Duration</th><th>Link</th>';
+                    html += '</tr></thead>';
+                    html += '<tbody>';
                     
                     archive.clips.forEach((clip, i) => {
-                        tsvData += (i + 1) + '\t';
-                        tsvData += (clip.id || '') + '\t';
-                        tsvData += (clip.invNo || '') + '\t';
-                        tsvData += (clip.fileName || '') + '\t';
-                        tsvData += (clip.sourceIn || '') + '\t';
-                        tsvData += (clip.sourceOut || '') + '\t';
-                        tsvData += clip.duration + '\t';
-                        tsvData += (clip.link || '') + '\n';
+                        html += '<tr>';
+                        html += '<td>' + (i + 1) + '</td>';
+                        html += '<td>' + (clip.id || '') + '</td>';
+                        html += '<td>' + (clip.invNo || '') + '</td>';
+                        html += '<td>' + (clip.fileName || '') + '</td>';
+                        html += '<td>' + (clip.sourceIn || '') + '</td>';
+                        html += '<td>' + (clip.sourceOut || '') + '</td>';
+                        html += '<td>' + (clip.duration || '00:00:00:00') + '</td>';
+                        html += '<td>' + (clip.link ? '<a href="' + clip.link + '">🔗</a>' : '') + '</td>';
+                        html += '</tr>';
                     });
                     
-                    tsvData += 'TOTAL\t\t\t\t\t\t' + archive.duration + '\t\n';
-                    tsvData += '\t\t\t\t\t\t\n';
+                    html += '<tr class="total-row">';
+                    html += '<td colspan="6"><strong>TOTAL</strong></td>';
+                    html += '<td><strong>' + archive.duration + '</strong></td>';
+                    html += '<td></td>';
+                    html += '</tr>';
+                    html += '</tbody></table>';
                 });
             }
             
-            // Stills Archives
+            // Stills archives
             if (stillsData.length > 0) {
-                tsvData += 'STILLS ARCHIVES\t\t\t\t\t\t\n';
-                tsvData += '\t\t\t\t\t\t\n';
+                html += '<div class="section-title stills">📷 STILLS / IMAGES</div>';
                 
                 stillsData.forEach(archive => {
-                    tsvData += 'ARCHIVE\t' + archive.name + '\t\t\t\t\t\n';
-                    tsvData += '#\tID\tInv No\tFile Name\tType\tLink\t\n';
+                    html += '<div class="archive-header stills">' + archive.name + ' (' + archive.entries + ' stills)</div>';
+                    html += '<table>';
+                    html += '<thead><tr>';
+                    html += '<th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Type</th><th>Link</th>';
+                    html += '</tr></thead>';
+                    html += '<tbody>';
                     
                     archive.clips.forEach((clip, i) => {
-                        tsvData += (i + 1) + '\t';
-                        tsvData += (clip.id || '') + '\t';
-                        tsvData += (clip.invNo || '') + '\t';
-                        tsvData += (clip.fileName || '') + '\t';
-                        tsvData += 'Still Image\t';
-                        tsvData += (clip.link || '') + '\t\n';
+                        html += '<tr>';
+                        html += '<td>' + (i + 1) + '</td>';
+                        html += '<td>' + (clip.id || '') + '</td>';
+                        html += '<td>' + (clip.invNo || '') + '</td>';
+                        html += '<td>' + (clip.fileName || '') + '</td>';
+                        html += '<td>Still Image</td>';
+                        html += '<td>' + (clip.link ? '<a href="' + clip.link + '">🔗</a>' : '') + '</td>';
+                        html += '</tr>';
                     });
                     
-                    tsvData += 'TOTAL\t' + archive.entries + ' Still Images\t\t\t\t\n';
-                    tsvData += '\t\t\t\t\t\t\n';
+                    html += '<tr class="total-row stills">';
+                    html += '<td colspan="6"><strong>TOTAL: ' + archive.entries + ' Still Images</strong></td>';
+                    html += '</tr>';
+                    html += '</tbody></table>';
                 });
             }
             
-            tsvData += '\t\t\t\t\t\t\n';
-            tsvData += 'Generated\t' + new Date().toLocaleString() + '\t\t\t\t\n';
+            html += '</body></html>';
             
-            copyToClipboard(tsvData, 'Table Format');
+            // Copy both HTML and plain text versions
+            copyFormattedContent(html);
+        }
+        
+        function copyFormattedContent(html) {
+            if (navigator.clipboard && window.ClipboardItem) {
+                // Modern API with HTML support
+                const htmlBlob = new Blob([html], { type: 'text/html' });
+                const textBlob = new Blob([html.replace(/<[^>]*>/g, '')], { type: 'text/plain' });
+                
+                const clipboardItem = new ClipboardItem({
+                    'text/html': htmlBlob,
+                    'text/plain': textBlob
+                });
+                
+                navigator.clipboard.write([clipboardItem]).then(() => {
+                    alert('✅ SUCCESS!\n\nFormatted table copied with colors and styles!\n\nNow:\n1. Open Word/Excel/Email\n2. Press Ctrl+V (or Cmd+V)\n3. See the beautiful formatted table! 🎨');
+                }).catch(() => {
+                    fallbackCopyHTML(html);
+                });
+            } else {
+                fallbackCopyHTML(html);
+            }
+        }
+        
+        function fallbackCopyHTML(html) {
+            const textArea = document.createElement('textarea');
+            textArea.value = html;
+            textArea.style.cssText = 'position:fixed;top:0;left:0;width:2em;height:2em;padding:0;border:none;outline:none;box-shadow:none;background:transparent;opacity:0';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                alert('✅ Copied!\n\nHTML code copied to clipboard.\nPaste in Word/Excel to see formatting!');
+            } catch (err) {
+                document.body.removeChild(textArea);
+                alert('⚠️ Please try in a modern browser (Chrome, Edge, Firefox)');
+            }
         }
         
         // Universal clipboard copy function
