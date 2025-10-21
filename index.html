@@ -224,8 +224,10 @@
             background: white;
             padding: 30px;
             border-radius: 12px;
-            max-width: 500px;
+            max-width: 600px;
             width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
             box-shadow: 0 10px 40px rgba(0,0,0,0.3);
         }
         
@@ -731,6 +733,13 @@
             <input type="text" class="modal-input" id="sheetEpisode" placeholder="Episode Number (e.g., 01, 02, 03...)">
             <input type="text" class="modal-input" id="sheetName" placeholder="Sheet Name (e.g., Duckwitz, Smith Archive)">
             <input type="text" class="modal-input" id="sheetUrl" placeholder="Apps Script Web App URL">
+            
+            <div style="margin-top: 20px; margin-bottom: 10px; font-weight: 600; color: #667eea;">Header Information (for exports)</div>
+            <input type="text" class="modal-input" id="sheetProduction" placeholder="Production Company (e.g., Michael W. King Productions, LLC., USA)">
+            <input type="text" class="modal-input" id="sheetProject" placeholder="Film Project (e.g., The Rescuers)">
+            <input type="text" class="modal-input" id="sheetResearcher" placeholder="Researcher Name (e.g., Frank Drauschke)">
+            <input type="text" class="modal-input" id="sheetContact" placeholder="Contact Email (e.g., research@drauschke.de)">
+            
             <div class="modal-buttons">
                 <button class="modal-btn-save" onclick="saveSheet()">Save</button>
                 <button class="modal-btn-cancel" onclick="closeModal()">Cancel</button>
@@ -940,6 +949,7 @@
         let currentSheetId = null;
         let editingSheetId = null;
         let currentSheetName = '';
+        let currentSheetInfo = {};
         
         function loadSavedSheets() {
             const saved = localStorage.getItem('savedSheets');
@@ -951,14 +961,22 @@
             const episode = urlParams.get('episode');
             const name = urlParams.get('name');
             const url = urlParams.get('url');
+            const production = urlParams.get('production');
+            const project = urlParams.get('project');
+            const researcher = urlParams.get('researcher');
+            const contact = urlParams.get('contact');
             
             // Auto-import sheet if not exists
-            if (sheetId && episode && name && url && !savedSheets.find(s => s.id === sheetId)) {
+            if (sheetId && name && url && !savedSheets.find(s => s.id === sheetId)) {
                 const newSheet = {
                     id: sheetId,
-                    episode: decodeURIComponent(episode),
+                    episode: decodeURIComponent(episode || ''),
                     name: decodeURIComponent(name),
                     url: decodeURIComponent(url),
+                    production: decodeURIComponent(production || ''),
+                    project: decodeURIComponent(project || ''),
+                    researcher: decodeURIComponent(researcher || ''),
+                    contact: decodeURIComponent(contact || ''),
                     addedAt: new Date().toISOString()
                 };
                 savedSheets.push(newSheet);
@@ -1023,7 +1041,11 @@
                 sheet: sheet.id,
                 episode: sheet.episode || '',
                 name: sheet.name,
-                url: sheet.url
+                url: sheet.url,
+                production: sheet.production || '',
+                project: sheet.project || '',
+                researcher: sheet.researcher || '',
+                contact: sheet.contact || ''
             });
             
             const shareUrl = window.location.origin + window.location.pathname + '?' + params.toString();
@@ -1061,6 +1083,10 @@
             document.getElementById('sheetEpisode').value = '';
             document.getElementById('sheetName').value = '';
             document.getElementById('sheetUrl').value = '';
+            document.getElementById('sheetProduction').value = '';
+            document.getElementById('sheetProject').value = '';
+            document.getElementById('sheetResearcher').value = '';
+            document.getElementById('sheetContact').value = '';
             document.getElementById('sheetModal').classList.add('show');
         }
         
@@ -1073,6 +1099,10 @@
             document.getElementById('sheetEpisode').value = sheet.episode || '';
             document.getElementById('sheetName').value = sheet.name;
             document.getElementById('sheetUrl').value = sheet.url;
+            document.getElementById('sheetProduction').value = sheet.production || '';
+            document.getElementById('sheetProject').value = sheet.project || '';
+            document.getElementById('sheetResearcher').value = sheet.researcher || '';
+            document.getElementById('sheetContact').value = sheet.contact || '';
             document.getElementById('sheetModal').classList.add('show');
         }
         
@@ -1085,6 +1115,10 @@
             const episode = document.getElementById('sheetEpisode').value.trim();
             const name = document.getElementById('sheetName').value.trim();
             const url = document.getElementById('sheetUrl').value.trim();
+            const production = document.getElementById('sheetProduction').value.trim();
+            const project = document.getElementById('sheetProject').value.trim();
+            const researcher = document.getElementById('sheetResearcher').value.trim();
+            const contact = document.getElementById('sheetContact').value.trim();
             
             if (!name) {
                 alert('Please enter a name for this sheet');
@@ -1102,6 +1136,10 @@
                     sheet.episode = episode;
                     sheet.name = name;
                     sheet.url = url;
+                    sheet.production = production;
+                    sheet.project = project;
+                    sheet.researcher = researcher;
+                    sheet.contact = contact;
                 }
             } else {
                 const newSheet = {
@@ -1109,6 +1147,10 @@
                     episode: episode,
                     name: name,
                     url: url,
+                    production: production,
+                    project: project,
+                    researcher: researcher,
+                    contact: contact,
                     addedAt: new Date().toISOString()
                 };
                 savedSheets.push(newSheet);
@@ -1145,6 +1187,14 @@
             currentSheetId = id;
             connectedUrl = sheet.url;
             currentSheetName = sheet.episode ? `${sheet.episode}_${sheet.name}` : sheet.name;
+            currentSheetInfo = {
+                production: sheet.production || '',
+                project: sheet.project || '',
+                episode: sheet.episode || '',
+                name: sheet.name || '',
+                researcher: sheet.researcher || '',
+                contact: sheet.contact || ''
+            };
             localStorage.setItem('lastActiveSheet', id);
             
             // Update active sheet display
@@ -1524,6 +1574,8 @@
             html += 'td { padding: 8px; border: 1px solid #ccc; }';
             html += 'tr:nth-child(even) { background-color: #fafafa; }';
             html += '.main-title { font-size: 18pt; font-weight: bold; color: #667eea; margin-bottom: 20px; padding: 15px; background: #f0f0f0; border-radius: 8px; text-align: center; }';
+            html += '.header-info { background: #f8f9fa; padding: 15px; margin-bottom: 20px; border-left: 4px solid #667eea; line-height: 1.8; }';
+            html += '.header-info strong { color: #667eea; display: inline-block; width: 180px; }';
             html += '.archive-name { font-weight: bold; margin-top: 15px; margin-bottom: 5px; font-size: 12pt; }';
             html += '.total-row { background: #e8e8e8; font-weight: bold; }';
             html += '.section-title { font-weight: bold; font-size: 13pt; margin: 20px 0 10px 0; padding: 8px; background: #f5f5f5; border-left: 4px solid #666; }';
@@ -1533,6 +1585,28 @@
             // Add main title with sheet name
             if (currentSheetName) {
                 html += '<div class="main-title">📽️ ' + currentSheetName + '</div>';
+            }
+            
+            // Add header information
+            if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
+                html += '<div class="header-info">';
+                if (currentSheetInfo.production) {
+                    html += '<div><strong>Production company:</strong> ' + currentSheetInfo.production + '</div>';
+                }
+                if (currentSheetInfo.project) {
+                    html += '<div><strong>Film project:</strong> ' + currentSheetInfo.project + '</div>';
+                }
+                if (currentSheetInfo.episode || currentSheetInfo.name) {
+                    const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
+                    html += '<div><strong>Episode:</strong> ' + episodeName + '</div>';
+                }
+                if (currentSheetInfo.researcher) {
+                    html += '<div><strong>Researcher:</strong> ' + currentSheetInfo.researcher + '</div>';
+                }
+                if (currentSheetInfo.contact) {
+                    html += '<div><strong>Contact:</strong> ' + currentSheetInfo.contact + '</div>';
+                }
+                html += '</div>';
             }
             
             if (videoData.length > 0) {
@@ -1631,6 +1705,8 @@
             html += '.section-title { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; font-size: 1.5em; font-weight: bold; margin: 30px 0 20px 0; border-radius: 8px; }';
             html += '.section-title.stills { background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); }';
             html += '.main-title { font-size: 24pt; font-weight: bold; color: white; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin-bottom: 30px; padding: 25px; border-radius: 12px; text-align: center; }';
+            html += '.header-info { background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%); padding: 20px; margin-bottom: 30px; border-left: 4px solid #667eea; line-height: 2; border-radius: 8px; }';
+            html += '.header-info strong { color: #667eea; display: inline-block; width: 200px; }';
             html += '.summary { background: #f8f9fa; padding: 20px; margin-bottom: 30px; border-radius: 8px; border: 2px solid #667eea; }';
             html += '.summary h2 { color: #667eea; margin-bottom: 15px; }';
             html += '.summary-row { display: flex; justify-content: space-between; margin: 10px 0; }';
@@ -1642,6 +1718,28 @@
             // Add main title with sheet name
             if (currentSheetName) {
                 html += '<div class="main-title">📽️ ' + currentSheetName + '</div>';
+            }
+            
+            // Add header information
+            if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
+                html += '<div class="header-info">';
+                if (currentSheetInfo.production) {
+                    html += '<div><strong>Production company:</strong> ' + currentSheetInfo.production + '</div>';
+                }
+                if (currentSheetInfo.project) {
+                    html += '<div><strong>Film project:</strong> ' + currentSheetInfo.project + '</div>';
+                }
+                if (currentSheetInfo.episode || currentSheetInfo.name) {
+                    const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
+                    html += '<div><strong>Episode:</strong> ' + episodeName + '</div>';
+                }
+                if (currentSheetInfo.researcher) {
+                    html += '<div><strong>Researcher:</strong> ' + currentSheetInfo.researcher + '</div>';
+                }
+                if (currentSheetInfo.contact) {
+                    html += '<div><strong>Contact:</strong> ' + currentSheetInfo.contact + '</div>';
+                }
+                html += '</div>';
             }
             
             html += '<div class="summary">';
