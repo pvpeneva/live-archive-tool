@@ -728,7 +728,8 @@
     <div class="modal" id="sheetModal">
         <div class="modal-content">
             <div class="modal-header" id="modalTitle">Add New Sheet</div>
-            <input type="text" class="modal-input" id="sheetName" placeholder="Sheet Name (e.g., DUCKWITZ EDL)">
+            <input type="text" class="modal-input" id="sheetEpisode" placeholder="Episode Number (e.g., 01, 02, 03...)">
+            <input type="text" class="modal-input" id="sheetName" placeholder="Sheet Name (e.g., Duckwitz, Smith Archive)">
             <input type="text" class="modal-input" id="sheetUrl" placeholder="Apps Script Web App URL">
             <div class="modal-buttons">
                 <button class="modal-btn-save" onclick="saveSheet()">Save</button>
@@ -960,16 +961,26 @@
                 list.style.display = 'block';
                 emptyState.style.display = 'none';
                 
-                list.innerHTML = savedSheets.map(sheet => `
+                // Sort by episode number
+                const sortedSheets = [...savedSheets].sort((a, b) => {
+                    const epA = a.episode || '999';
+                    const epB = b.episode || '999';
+                    return epA.localeCompare(epB);
+                });
+                
+                list.innerHTML = sortedSheets.map(sheet => {
+                    const displayName = sheet.episode ? `${sheet.episode}_${sheet.name}` : sheet.name;
+                    return `
                     <li class="sheet-item ${sheet.id === currentSheetId ? 'active' : ''}" onclick="loadSheet('${sheet.id}')">
-                        <div class="sheet-item-name">${sheet.name}</div>
+                        <div class="sheet-item-name">${displayName}</div>
                         <div class="sheet-item-url">${sheet.url.substring(0, 40)}...</div>
                         <div class="sheet-item-actions" onclick="event.stopPropagation()">
                             <button class="action-btn" onclick="editSheet('${sheet.id}')" title="Edit">✏️</button>
                             <button class="action-btn delete" onclick="deleteSheet('${sheet.id}')" title="Delete">🗑️</button>
                         </div>
                     </li>
-                `).join('');
+                `;
+                }).join('');
             }
         }
         
@@ -990,6 +1001,7 @@
         function showAddSheetModal() {
             editingSheetId = null;
             document.getElementById('modalTitle').textContent = 'Add New Sheet';
+            document.getElementById('sheetEpisode').value = '';
             document.getElementById('sheetName').value = '';
             document.getElementById('sheetUrl').value = '';
             document.getElementById('sheetModal').classList.add('show');
@@ -1001,6 +1013,7 @@
             
             editingSheetId = id;
             document.getElementById('modalTitle').textContent = 'Edit Sheet';
+            document.getElementById('sheetEpisode').value = sheet.episode || '';
             document.getElementById('sheetName').value = sheet.name;
             document.getElementById('sheetUrl').value = sheet.url;
             document.getElementById('sheetModal').classList.add('show');
@@ -1012,6 +1025,7 @@
         }
         
         function saveSheet() {
+            const episode = document.getElementById('sheetEpisode').value.trim();
             const name = document.getElementById('sheetName').value.trim();
             const url = document.getElementById('sheetUrl').value.trim();
             
@@ -1028,12 +1042,14 @@
             if (editingSheetId) {
                 const sheet = savedSheets.find(s => s.id === editingSheetId);
                 if (sheet) {
+                    sheet.episode = episode;
                     sheet.name = name;
                     sheet.url = url;
                 }
             } else {
                 const newSheet = {
                     id: 'sheet_' + Date.now(),
+                    episode: episode,
                     name: name,
                     url: url,
                     addedAt: new Date().toISOString()
@@ -1429,7 +1445,7 @@
             document.getElementById('stillsArchives').textContent = stillsData.length;
         }
         
-        // COPY AS PLAIN TEXT (ASCII Table format)
+        // COPY AS PLAIN TEXT (TSV Table format for Excel/Sheets)
         function copyPlainText() {
             const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
             
@@ -1440,82 +1456,70 @@
             
             const videoData = dataToUse.filter(a => a.type === 'video');
             const stillsData = dataToUse.filter(a => a.type === 'stills');
-            const videoClips = videoData.reduce((sum, a) => sum + a.clips.length, 0);
-            const stillsCount = stillsData.reduce((sum, a) => sum + a.entries, 0);
-            const totalFrames = videoData.reduce((sum, a) => sum + a.totalFrames, 0);
-            const videoDuration = framesToTimecode(totalFrames);
             
-            let text = '═══════════════════════════════════════════════════════════════════\n';
-            text += 'ARCHIVE REPORT SUMMARY\n';
-            text += '═══════════════════════════════════════════════════════════════════\n\n';
+            let text = '';
             
-            text += 'VIDEO CLIPS: ' + videoClips + '  |  VIDEO ARCHIVES: ' + videoData.length + '  |  TOTAL DURATION: ' + videoDuration + '\n';
-            text += 'STILLS: ' + stillsCount + '  |  STILLS ARCHIVES: ' + stillsData.length + '\n\n';
-            
-            text += '═══════════════════════════════════════════════════════════════════\n\n';
-            
-            // Helper function to pad strings
-            const pad = (str, len) => {
-                str = str.toString();
-                return str.length >= len ? str.substring(0, len) : str + ' '.repeat(len - str.length);
-            };
-            
+            // Video archives
             if (videoData.length > 0) {
-                text += 'VIDEO ARCHIVES\n\n';
+                text += 'VIDEO ARCHIVES\n';
+                text += '\n';
                 
                 videoData.forEach(archive => {
                     text += archive.name + ' (' + archive.clips.length + ' clips)\n';
-                    text += '─'.repeat(130) + '\n';
-                    text += pad('#', 4) + pad('ID', 8) + pad('Inv No', 10) + pad('File Name', 45) + pad('Source In', 14) + pad('Source Out', 14) + pad('Duration', 14) + 'Link\n';
-                    text += '─'.repeat(130) + '\n';
+                    text += '\n';
                     
+                    // Header row
+                    text += '#\tID\tInv No\tFile Name\tSource In\tSource Out\tDuration\tLink\n';
+                    
+                    // Data rows
                     archive.clips.forEach((clip, i) => {
-                        const num = (i + 1).toString();
-                        const id = clip.id || '';
-                        const invNo = clip.invNo || '';
-                        const fileName = clip.fileName || '';
-                        const sourceIn = clip.sourceIn || '';
-                        const sourceOut = clip.sourceOut || '';
-                        const duration = clip.duration || '';
-                        const link = clip.link ? '🔗' : '';
-                        
-                        text += pad(num, 4) + pad(id, 8) + pad(invNo, 10) + pad(fileName, 45) + pad(sourceIn, 14) + pad(sourceOut, 14) + pad(duration, 14) + link + '\n';
+                        text += (i + 1) + '\t';
+                        text += (clip.id || '') + '\t';
+                        text += (clip.invNo || '') + '\t';
+                        text += (clip.fileName || '') + '\t';
+                        text += (clip.sourceIn || '') + '\t';
+                        text += (clip.sourceOut || '') + '\t';
+                        text += (clip.duration || '00:00:00:00') + '\t';
+                        text += (clip.link || '') + '\n';
                     });
                     
-                    text += '─'.repeat(130) + '\n';
-                    text += pad('TOTAL', 77) + pad('', 14) + pad('', 14) + archive.duration + '\n';
-                    text += '\n\n';
+                    // Total row
+                    text += '\n';
+                    text += 'TOTAL\t\t\t\t\t\t' + archive.duration + '\n';
+                    text += '\n';
+                    text += '\n';
                 });
             }
             
+            // Stills archives
             if (stillsData.length > 0) {
-                text += 'STILLS / IMAGES\n\n';
+                text += 'STILLS / IMAGES\n';
+                text += '\n';
                 
                 stillsData.forEach(archive => {
                     text += archive.name + ' (' + archive.entries + ' stills)\n';
-                    text += '─'.repeat(110) + '\n';
-                    text += pad('#', 4) + pad('ID', 8) + pad('Inv No', 10) + pad('File Name', 60) + pad('Type', 15) + 'Link\n';
-                    text += '─'.repeat(110) + '\n';
+                    text += '\n';
                     
+                    // Header row
+                    text += '#\tID\tInv No\tFile Name\tType\tLink\n';
+                    
+                    // Data rows
                     archive.clips.forEach((clip, i) => {
-                        const num = (i + 1).toString();
-                        const id = clip.id || '';
-                        const invNo = clip.invNo || '';
-                        const fileName = clip.fileName || '';
-                        const link = clip.link ? '🔗' : '';
-                        
-                        text += pad(num, 4) + pad(id, 8) + pad(invNo, 10) + pad(fileName, 60) + pad('Still Image', 15) + link + '\n';
+                        text += (i + 1) + '\t';
+                        text += (clip.id || '') + '\t';
+                        text += (clip.invNo || '') + '\t';
+                        text += (clip.fileName || '') + '\t';
+                        text += 'Still Image\t';
+                        text += (clip.link || '') + '\n';
                     });
                     
-                    text += '─'.repeat(110) + '\n';
-                    text += 'TOTAL: ' + archive.entries + ' Still Images\n';
-                    text += '\n\n';
+                    // Total row
+                    text += '\n';
+                    text += 'TOTAL\t' + archive.entries + ' Still Images\n';
+                    text += '\n';
+                    text += '\n';
                 });
             }
-            
-            text += '═══════════════════════════════════════════════════════════════════\n';
-            text += 'Generated: ' + new Date().toLocaleString() + '\n';
-            text += '═══════════════════════════════════════════════════════════════════';
             
             copyToClipboard(text, 'Plain Text Table');
         }
