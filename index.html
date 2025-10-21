@@ -961,7 +961,6 @@
                 list.style.display = 'block';
                 emptyState.style.display = 'none';
                 
-                // Sort by episode number
                 const sortedSheets = [...savedSheets].sort((a, b) => {
                     const epA = a.episode || '999';
                     const epB = b.episode || '999';
@@ -1445,7 +1444,6 @@
             document.getElementById('stillsArchives').textContent = stillsData.length;
         }
         
-        // COPY AS PLAIN TEXT (Simple TSV Table)
         function copyPlainText() {
             const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
             
@@ -1457,68 +1455,85 @@
             const videoData = dataToUse.filter(a => a.type === 'video');
             const stillsData = dataToUse.filter(a => a.type === 'stills');
             
-            let text = '';
+            let html = '<html><head><style>';
+            html += 'body { font-family: Arial, sans-serif; font-size: 11pt; }';
+            html += 'table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }';
+            html += 'th { background: #f0f0f0; color: black; padding: 8px; text-align: left; font-weight: bold; border: 1px solid #ccc; }';
+            html += 'td { padding: 8px; border: 1px solid #ccc; }';
+            html += 'tr:nth-child(even) { background-color: #fafafa; }';
+            html += '.archive-name { font-weight: bold; margin-top: 15px; margin-bottom: 5px; font-size: 12pt; }';
+            html += '.total-row { background: #e8e8e8; font-weight: bold; }';
+            html += '.section-title { font-weight: bold; font-size: 13pt; margin: 20px 0 10px 0; padding: 8px; background: #f5f5f5; border-left: 4px solid #666; }';
+            html += 'a { color: #0066cc; text-decoration: none; }';
+            html += '</style></head><body>';
             
-            // Video archives
             if (videoData.length > 0) {
-                text += 'VIDEO ARCHIVES\n\n';
+                html += '<div class="section-title">VIDEO ARCHIVES</div>';
                 
                 videoData.forEach(archive => {
-                    text += archive.name + ' (' + archive.clips.length + ' clips)\n\n';
+                    html += '<div class="archive-name">' + archive.name + ' (' + archive.clips.length + ' clips)</div>';
+                    html += '<table>';
+                    html += '<thead><tr>';
+                    html += '<th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Source In</th><th>Source Out</th><th>Duration</th><th>Link</th>';
+                    html += '</tr></thead>';
+                    html += '<tbody>';
                     
-                    // Header row with tabs
-                    text += '#\tID\tInv No\tFile Name\tSource In\tSource Out\tDuration\tLink\n';
-                    
-                    // Data rows with tabs
                     archive.clips.forEach((clip, i) => {
-                        text += (i + 1) + '\t';
-                        text += (clip.id || '') + '\t';
-                        text += (clip.invNo || '') + '\t';
-                        text += (clip.fileName || '') + '\t';
-                        text += (clip.sourceIn || '') + '\t';
-                        text += (clip.sourceOut || '') + '\t';
-                        text += (clip.duration || '00:00:00:00') + '\t';
-                        text += (clip.link || '') + '\n';
+                        html += '<tr>';
+                        html += '<td>' + (i + 1) + '</td>';
+                        html += '<td>' + (clip.id || '') + '</td>';
+                        html += '<td>' + (clip.invNo || '') + '</td>';
+                        html += '<td>' + (clip.fileName || '') + '</td>';
+                        html += '<td>' + (clip.sourceIn || '') + '</td>';
+                        html += '<td>' + (clip.sourceOut || '') + '</td>';
+                        html += '<td>' + (clip.duration || '00:00:00:00') + '</td>';
+                        html += '<td>' + (clip.link ? '<a href="' + clip.link + '">🔗</a>' : '') + '</td>';
+                        html += '</tr>';
                     });
                     
-                    // Total row
-                    text += '\n';
-                    text += 'TOTAL\t\t\t\t\t\t' + archive.duration + '\n';
-                    text += '\n\n';
+                    html += '<tr class="total-row">';
+                    html += '<td colspan="6">TOTAL</td>';
+                    html += '<td>' + archive.duration + '</td>';
+                    html += '<td></td>';
+                    html += '</tr>';
+                    html += '</tbody></table>';
                 });
             }
             
-            // Stills archives
             if (stillsData.length > 0) {
-                text += 'STILLS / IMAGES\n\n';
+                html += '<div class="section-title">STILLS / IMAGES</div>';
                 
                 stillsData.forEach(archive => {
-                    text += archive.name + ' (' + archive.entries + ' stills)\n\n';
+                    html += '<div class="archive-name">' + archive.name + ' (' + archive.entries + ' stills)</div>';
+                    html += '<table>';
+                    html += '<thead><tr>';
+                    html += '<th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Type</th><th>Link</th>';
+                    html += '</tr></thead>';
+                    html += '<tbody>';
                     
-                    // Header row with tabs
-                    text += '#\tID\tInv No\tFile Name\tType\tLink\n';
-                    
-                    // Data rows with tabs
                     archive.clips.forEach((clip, i) => {
-                        text += (i + 1) + '\t';
-                        text += (clip.id || '') + '\t';
-                        text += (clip.invNo || '') + '\t';
-                        text += (clip.fileName || '') + '\t';
-                        text += 'Still Image\t';
-                        text += (clip.link || '') + '\n';
+                        html += '<tr>';
+                        html += '<td>' + (i + 1) + '</td>';
+                        html += '<td>' + (clip.id || '') + '</td>';
+                        html += '<td>' + (clip.invNo || '') + '</td>';
+                        html += '<td>' + (clip.fileName || '') + '</td>';
+                        html += '<td>Still Image</td>';
+                        html += '<td>' + (clip.link ? '<a href="' + clip.link + '">🔗</a>' : '') + '</td>';
+                        html += '</tr>';
                     });
                     
-                    // Total row
-                    text += '\n';
-                    text += 'TOTAL\t' + archive.entries + ' Still Images\n';
-                    text += '\n\n';
+                    html += '<tr class="total-row">';
+                    html += '<td colspan="6">TOTAL: ' + archive.entries + ' Still Images</td>';
+                    html += '</tr>';
+                    html += '</tbody></table>';
                 });
             }
             
-            copyToClipboard(text, 'Table');
+            html += '</body></html>';
+            
+            copyFormattedContent(html);
         }
         
-        // COPY AS TABLE WITH FORMATTING (HTML with colors and styles)
         function copyAsTable() {
             const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
             
@@ -1534,7 +1549,6 @@
             const totalFrames = videoData.reduce((sum, a) => sum + a.totalFrames, 0);
             const videoDuration = framesToTimecode(totalFrames);
             
-            // Create HTML with full styling
             let html = '<html><head><style>';
             html += 'body { font-family: Arial, sans-serif; }';
             html += 'table { border-collapse: collapse; width: 100%; margin-bottom: 30px; }';
@@ -1556,7 +1570,6 @@
             html += 'a { color: #667eea; text-decoration: none; }';
             html += '</style></head><body>';
             
-            // Summary section
             html += '<div class="summary">';
             html += '<h2>📊 ARCHIVE REPORT SUMMARY</h2>';
             html += '<div class="summary-row"><span class="summary-label">Video Clips:</span><span class="summary-value">' + videoClips + '</span></div>';
@@ -1566,7 +1579,6 @@
             html += '<div class="summary-row"><span class="summary-label">Stills Archives:</span><span class="summary-value">' + stillsData.length + '</span></div>';
             html += '</div>';
             
-            // Video archives
             if (videoData.length > 0) {
                 html += '<div class="section-title">🎬 VIDEO ARCHIVES</div>';
                 
@@ -1600,7 +1612,6 @@
                 });
             }
             
-            // Stills archives
             if (stillsData.length > 0) {
                 html += '<div class="section-title stills">📷 STILLS / IMAGES</div>';
                 
@@ -1632,13 +1643,11 @@
             
             html += '</body></html>';
             
-            // Copy both HTML and plain text versions
             copyFormattedContent(html);
         }
         
         function copyFormattedContent(html) {
             if (navigator.clipboard && window.ClipboardItem) {
-                // Modern API with HTML support
                 const htmlBlob = new Blob([html], { type: 'text/html' });
                 const textBlob = new Blob([html.replace(/<[^>]*>/g, '')], { type: 'text/plain' });
                 
@@ -1648,7 +1657,7 @@
                 });
                 
                 navigator.clipboard.write([clipboardItem]).then(() => {
-                    alert('✅ SUCCESS!\n\nFormatted table copied with colors and styles!\n\nNow:\n1. Open Word/Excel/Email\n2. Press Ctrl+V (or Cmd+V)\n3. See the beautiful formatted table! 🎨');
+                    alert('✅ SUCCESS!\n\nFormatted table copied with styles!\n\nNow:\n1. Open Word/Excel/Email\n2. Press Ctrl+V (or Cmd+V)\n3. See the formatted table! 🎨');
                 }).catch(() => {
                     fallbackCopyHTML(html);
                 });
@@ -1673,75 +1682,6 @@
                 document.body.removeChild(textArea);
                 alert('⚠️ Please try in a modern browser (Chrome, Edge, Firefox)');
             }
-        }
-        
-        // Universal clipboard copy function
-        function copyToClipboard(text, formatName) {
-            const copySuccess = () => {
-                alert('✅ SUCCESS!\n\n' + formatName + ' copied to clipboard!\n\nNow:\n1. Open Excel/Sheets/Email\n2. Press Ctrl+V (or Cmd+V)\n3. Paste!');
-            };
-            
-            const copyFallback = () => {
-                const textArea = document.createElement('textarea');
-                textArea.value = text;
-                textArea.style.cssText = 'position:fixed;top:0;left:0;width:2em;height:2em;padding:0;border:none;outline:none;box-shadow:none;background:transparent';
-                document.body.appendChild(textArea);
-                textArea.focus();
-                textArea.select();
-                
-                try {
-                    const successful = document.execCommand('copy');
-                    document.body.removeChild(textArea);
-                    if (successful) {
-                        copySuccess();
-                    } else {
-                        showCopyPopup(text, formatName);
-                    }
-                } catch (err) {
-                    document.body.removeChild(textArea);
-                    showCopyPopup(text, formatName);
-                }
-            };
-            
-            if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(text).then(copySuccess).catch(copyFallback);
-            } else {
-                copyFallback();
-            }
-        }
-        
-        function showCopyPopup(text, formatName) {
-            const modal = document.createElement('div');
-            modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:10000;display:flex;align-items:center;justify-content:center';
-            
-            const box = document.createElement('div');
-            box.style.cssText = 'background:white;padding:30px;border-radius:12px;max-width:800px;max-height:80vh;overflow:auto';
-            
-            const title = document.createElement('h3');
-            title.textContent = '📋 Copy This ' + formatName;
-            title.style.cssText = 'margin-bottom:20px;color:#667eea';
-            
-            const instructions = document.createElement('p');
-            instructions.innerHTML = '<strong>How to copy:</strong><br>1. Click inside the box<br>2. Press Ctrl+A (or Cmd+A)<br>3. Press Ctrl+C (or Cmd+C)<br>4. Close this window<br>5. Paste into Excel/Email';
-            instructions.style.cssText = 'margin-bottom:20px;line-height:1.8';
-            
-            const textArea = document.createElement('textarea');
-            textArea.value = text;
-            textArea.style.cssText = 'width:100%;height:400px;padding:15px;border:2px solid #667eea;border-radius:8px;font-family:monospace;font-size:12px;margin-bottom:20px';
-            
-            const closeBtn = document.createElement('button');
-            closeBtn.textContent = 'Close';
-            closeBtn.style.cssText = 'padding:12px 30px;background:#667eea;color:white;border:none;border-radius:8px;cursor:pointer;font-size:16px';
-            closeBtn.onclick = () => document.body.removeChild(modal);
-            
-            box.appendChild(title);
-            box.appendChild(instructions);
-            box.appendChild(textArea);
-            box.appendChild(closeBtn);
-            modal.appendChild(box);
-            document.body.appendChild(modal);
-            
-            textArea.select();
         }
         
         window.onload = () => loadSavedSheets();
