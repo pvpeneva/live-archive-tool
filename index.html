@@ -1785,51 +1785,58 @@
             const videoData = dataToUse.filter(a => a.type === 'video');
             const stillsData = dataToUse.filter(a => a.type === 'stills');
             
+            // PLAIN TABLE - NO COLORS, NO GRADIENTS
             let html = '<html><head><style>';
             html += 'body { font-family: Arial, sans-serif; font-size: 11pt; }';
-            html += 'table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }';
-            html += 'th { background: #f0f0f0; color: black; padding: 8px; text-align: left; font-weight: bold; border: 1px solid #ccc; }';
-            html += 'td { padding: 8px; border: 1px solid #ccc; }';
-            html += 'tr:nth-child(even) { background-color: #fafafa; }';
-            html += '.main-title { font-size: 18pt; font-weight: bold; color: #667eea; margin-bottom: 20px; padding: 15px; background: #f0f0f0; border-radius: 8px; text-align: center; }';
-            html += '.archive-name { font-weight: bold; margin-top: 15px; margin-bottom: 5px; font-size: 12pt; }';
-            html += '.total-row { background: #e8e8e8; font-weight: bold; }';
-            html += '.section-title { font-weight: bold; font-size: 13pt; margin: 20px 0 10px 0; padding: 8px; background: #f5f5f5; border-left: 4px solid #666; }';
+            html += 'table { border-collapse: collapse; width: 100%; margin-bottom: 20px; border: 1px solid #000; }';
+            html += 'th { background: #ffffff; color: #000000; padding: 8px; text-align: left; font-weight: bold; border: 1px solid #000; }';
+            html += 'td { padding: 8px; border: 1px solid #000; background: #ffffff; color: #000000; }';
+            html += '.main-title { font-size: 14pt; font-weight: bold; color: #000000; margin-bottom: 15px; text-align: center; }';
+            html += '.archive-name { font-weight: bold; margin-top: 15px; margin-bottom: 5px; font-size: 11pt; color: #000000; }';
+            html += '.total-row { background: #ffffff; font-weight: bold; border-top: 2px solid #000; }';
+            html += '.section-title { font-weight: bold; font-size: 12pt; margin: 15px 0 8px 0; color: #000000; }';
+            html += '.info-table { border: 1px solid #000; margin-bottom: 20px; }';
+            html += '.info-label { font-weight: bold; width: 180px; background: #ffffff; border: 1px solid #000; padding: 6px; }';
+            html += '.info-value { background: #ffffff; border: 1px solid #000; padding: 6px; }';
             html += 'a { color: #0066cc; text-decoration: none; }';
             html += '</style></head><body>';
             
+            // Title
             if (currentSheetName) {
-                html += '<div class="main-title">📽️ ' + currentSheetName + '</div>';
+                html += '<div class="main-title">' + currentSheetName + '</div>';
             }
             
+            // Sheet Information - PLAIN TABLE
             if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
-                html += '<table style="width: 100%; margin-bottom: 20px; border: 2px solid #667eea; background: #f8f9fa;">';
-                html += '<tr style="background: #667eea;"><td colspan="2" style="padding: 12px; color: white; font-weight: bold; font-size: 14pt;">Sheet Information</td></tr>';
+                html += '<table class="info-table">';
+                html += '<thead><tr><th colspan="2">Sheet Information</th></tr></thead>';
+                html += '<tbody>';
                 
                 if (currentSheetInfo.production) {
-                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; width: 200px; border: 1px solid #dee;">Production company:</td>';
-                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.production + '</td></tr>';
+                    html += '<tr><td class="info-label">Production company:</td>';
+                    html += '<td class="info-value">' + currentSheetInfo.production + '</td></tr>';
                 }
                 if (currentSheetInfo.project) {
-                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Film project:</td>';
-                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.project + '</td></tr>';
+                    html += '<tr><td class="info-label">Film project:</td>';
+                    html += '<td class="info-value">' + currentSheetInfo.project + '</td></tr>';
                 }
                 if (currentSheetInfo.episode || currentSheetInfo.name) {
                     const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
-                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Episode:</td>';
-                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + episodeName + '</td></tr>';
+                    html += '<tr><td class="info-label">Episode:</td>';
+                    html += '<td class="info-value">' + episodeName + '</td></tr>';
                 }
                 if (currentSheetInfo.researcher) {
-                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Researcher:</td>';
-                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.researcher + '</td></tr>';
+                    html += '<tr><td class="info-label">Researcher:</td>';
+                    html += '<td class="info-value">' + currentSheetInfo.researcher + '</td></tr>';
                 }
                 if (currentSheetInfo.contact) {
-                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Contact:</td>';
-                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.contact + '</td></tr>';
+                    html += '<tr><td class="info-label">Contact:</td>';
+                    html += '<td class="info-value">' + currentSheetInfo.contact + '</td></tr>';
                 }
-                html += '</table>';
+                html += '</tbody></table>';
             }
             
+            // Video Archives
             if (videoData.length > 0) {
                 html += '<div class="section-title">VIDEO ARCHIVES</div>';
                 
@@ -1850,19 +1857,20 @@
                         html += '<td>' + (clip.sourceIn || '') + '</td>';
                         html += '<td>' + (clip.sourceOut || '') + '</td>';
                         html += '<td>' + (clip.duration || '00:00:00:00') + '</td>';
-                        html += '<td>' + (clip.link ? '<a href="' + clip.link + '">🔗</a>' : '') + '</td>';
+                        html += '<td>' + (clip.link ? '<a href="' + clip.link + '">Link</a>' : '') + '</td>';
                         html += '</tr>';
                     });
                     
                     html += '<tr class="total-row">';
-                    html += '<td colspan="6">TOTAL</td>';
-                    html += '<td>' + archive.duration + '</td>';
+                    html += '<td colspan="6"><strong>TOTAL</strong></td>';
+                    html += '<td><strong>' + archive.duration + '</strong></td>';
                     html += '<td></td>';
                     html += '</tr>';
                     html += '</tbody></table>';
                 });
             }
             
+            // Stills Archives
             if (stillsData.length > 0) {
                 html += '<div class="section-title">STILLS / IMAGES</div>';
                 
@@ -1881,12 +1889,12 @@
                         html += '<td>' + (clip.invNo || '') + '</td>';
                         html += '<td>' + (clip.fileName || '') + '</td>';
                         html += '<td>Still Image</td>';
-                        html += '<td>' + (clip.link ? '<a href="' + clip.link + '">🔗</a>' : '') + '</td>';
+                        html += '<td>' + (clip.link ? '<a href="' + clip.link + '">Link</a>' : '') + '</td>';
                         html += '</tr>';
                     });
                     
                     html += '<tr class="total-row">';
-                    html += '<td colspan="6">TOTAL: ' + archive.entries + ' Still Images</td>';
+                    html += '<td colspan="6"><strong>TOTAL: ' + archive.entries + ' Still Images</strong></td>';
                     html += '</tr>';
                     html += '</tbody></table>';
                 });
