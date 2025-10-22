@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Archive Footage Database - Live</title>
+    <title>Archive Footage Database - Live (Fixed Duration Calculation)</title>
     <style>
         * {
             margin: 0;
@@ -224,10 +224,8 @@
             background: white;
             padding: 30px;
             border-radius: 12px;
-            max-width: 600px;
+            max-width: 500px;
             width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
             box-shadow: 0 10px 40px rgba(0,0,0,0.3);
         }
         
@@ -344,41 +342,17 @@
             50% { opacity: 0.5; }
         }
         
-        .setup-instructions {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            margin: 30px;
-            border-radius: 12px;
-        }
-        
-        .setup-instructions h3 {
-            font-size: 1.5em;
-            margin-bottom: 20px;
-        }
-        
-        .setup-step {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-        }
-        
-        .setup-step h4 {
-            margin-bottom: 10px;
-            font-size: 1.2em;
-        }
-        
-        .code-block {
-            background: #1e1e1e;
-            color: #d4d4d4;
-            padding: 20px;
-            border-radius: 8px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9em;
-            overflow-x: auto;
-            margin: 10px 0;
-            white-space: pre;
+        .fps-badge {
+            position: absolute;
+            top: 65px;
+            right: 20px;
+            background: rgba(255, 193, 7, 0.9);
+            color: #000;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
         
         .sheet-config {
@@ -471,7 +445,7 @@
             padding: 30px;
             background: #f8f9fa;
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr;
             gap: 20px;
         }
         
@@ -510,19 +484,17 @@
             display: flex;
             gap: 10px;
             margin-top: 10px;
-            flex-wrap: wrap;
         }
         
         .btn {
-            padding: 12px 20px;
+            padding: 12px 24px;
             border: none;
             border-radius: 8px;
-            font-size: 0.95em;
+            font-size: 1em;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
             flex: 1;
-            min-width: 140px;
         }
         
         .btn-primary {
@@ -542,16 +514,6 @@
         
         .btn-secondary:hover {
             background: #dee2e6;
-        }
-        
-        .btn-success {
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-            color: white;
-        }
-        
-        .btn-success:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
         }
         
         .section-divider {
@@ -677,28 +639,12 @@
             font-size: 1.2em;
         }
         
-        .toggle-setup {
-            background: #fff3cd;
-            border: 2px solid #ffc107;
-            padding: 15px;
-            margin: 20px 30px;
-            border-radius: 8px;
-            cursor: pointer;
-            text-align: center;
-            font-weight: 600;
-            color: #856404;
-        }
-        
-        .toggle-setup:hover {
-            background: #ffe69c;
-        }
-        
         @media print {
             body {
                 background: white;
             }
             
-            .controls, .stats-bar, .header, .sheet-config, .setup-instructions, .toggle-setup, .hamburger-menu, .sidebar {
+            .controls, .stats-bar, .header, .sheet-config, .hamburger-menu, .sidebar {
                 display: none;
             }
             
@@ -711,6 +657,7 @@
 <body>
     <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
     
+    <!-- Sidebar -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <h2>📚 My Sheets</h2>
@@ -718,8 +665,9 @@
         </div>
         <div class="sidebar-content">
             <button class="add-sheet-btn" onclick="showAddSheetModal()">+ Add New Sheet</button>
-            <button class="add-sheet-btn" onclick="testSharing()" style="background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); margin-bottom: 10px;">🧪 Test Sharing</button>
-            <ul class="sheet-list" id="sheetList"></ul>
+            <ul class="sheet-list" id="sheetList">
+                <!-- Sheets will be populated here -->
+            </ul>
             <div class="empty-state" id="emptyState">
                 <div class="empty-state-icon">📋</div>
                 <p>No sheets saved yet</p>
@@ -728,19 +676,12 @@
         </div>
     </div>
     
+    <!-- Add/Edit Sheet Modal -->
     <div class="modal" id="sheetModal">
         <div class="modal-content">
             <div class="modal-header" id="modalTitle">Add New Sheet</div>
-            <input type="text" class="modal-input" id="sheetEpisode" placeholder="Episode Number (e.g., 01, 02, 03...)">
-            <input type="text" class="modal-input" id="sheetName" placeholder="Sheet Name (e.g., Duckwitz, Smith Archive)">
+            <input type="text" class="modal-input" id="sheetName" placeholder="Sheet Name (e.g., DUCKWITZ EDL)">
             <input type="text" class="modal-input" id="sheetUrl" placeholder="Apps Script Web App URL">
-            
-            <div style="margin-top: 20px; margin-bottom: 10px; font-weight: 600; color: #667eea;">Header Information (for exports)</div>
-            <input type="text" class="modal-input" id="sheetProduction" placeholder="Production Company (e.g., Michael W. King Productions, LLC., USA)">
-            <input type="text" class="modal-input" id="sheetProject" placeholder="Film Project (e.g., The Rescuers)">
-            <input type="text" class="modal-input" id="sheetResearcher" placeholder="Researcher Name (e.g., Frank Drauschke)">
-            <input type="text" class="modal-input" id="sheetContact" placeholder="Contact Email (e.g., research@drauschke.de)">
-            
             <div class="modal-buttons">
                 <button class="modal-btn-save" onclick="saveSheet()">Save</button>
                 <button class="modal-btn-cancel" onclick="closeModal()">Cancel</button>
@@ -757,88 +698,9 @@
                 <div class="live-dot" id="liveDot"></div>
                 <span id="liveStatus">Ready</span>
             </div>
+            <div class="fps-badge" id="fpsBadge">FPS: 30</div>
             <h1>🎬 Live Archive Report</h1>
-            <p>Real-time Footage Database • Film & Video Archives</p>
-            <p id="activeSheetDisplay" style="margin-top: 10px; font-size: 0.9em; opacity: 0.8;"></p>
-        </div>
-        
-        <div class="toggle-setup" onclick="toggleSetup()">
-            📖 Click here for Setup Instructions (One-time, 2 minutes)
-        </div>
-        
-        <div class="setup-instructions" id="setupInstructions" style="display: none;">
-            <h3>🚀 One-Time Setup (Takes 2 minutes)</h3>
-            <p style="margin-bottom: 20px;">Create a simple Google Apps Script to connect your sheet. This bypasses all connection issues!</p>
-            
-            <div class="setup-step">
-                <h4>Step 1: Open Apps Script</h4>
-                <p>In your Google Sheet, go to: <strong>Extensions → Apps Script</strong></p>
-            </div>
-            
-            <div class="setup-step">
-                <h4>Step 2: Paste This Code</h4>
-                <p>Delete any existing code and paste this:</p>
-                <div class="code-block">function doGet(e) {
-  try {
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('DUCKWITZ EDL');
-    
-    if (!sheet) {
-      return ContentService
-        .createTextOutput(JSON.stringify({error: 'Sheet not found'}))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
-    
-    var data = sheet.getDataRange().getValues();
-    var headers = data[0];
-    var rows = [];
-    
-    for (var i = 1; i < data.length; i++) {
-      var row = {};
-      for (var j = 0; j < headers.length; j++) {
-        row[headers[j]] = data[i][j] !== null && data[i][j] !== undefined 
-          ? data[i][j].toString() 
-          : '';
-      }
-      rows.push(row);
-    }
-    
-    return ContentService
-      .createTextOutput(JSON.stringify(rows))
-      .setMimeType(ContentService.MimeType.JSON);
-      
-  } catch (error) {
-    return ContentService
-      .createTextOutput(JSON.stringify({error: error.toString()}))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-}</div>
-                <p style="margin-top: 10px;"><strong>Important:</strong> Replace <code>'DUCKWITZ EDL'</code> with your actual sheet tab name if different!</p>
-            </div>
-            
-            <div class="setup-step">
-                <h4>Step 3: Deploy as Web App</h4>
-                <ol style="line-height: 2; margin-top: 10px;">
-                    <li>Click <strong>💾 Save</strong> first</li>
-                    <li>Click <strong>"Deploy"</strong> → <strong>"New deployment"</strong></li>
-                    <li>Click gear icon ⚙️ → Select <strong>"Web app"</strong></li>
-                    <li><strong>Execute as:</strong> Me</li>
-                    <li><strong>Who has access:</strong> Anyone</li>
-                    <li>Click <strong>"Deploy"</strong> and authorize</li>
-                    <li><strong>Copy the Web App URL</strong> (ends with /exec)</li>
-                </ol>
-            </div>
-            
-            <div class="setup-step">
-                <h4>Step 4: Save to Sidebar</h4>
-                <p>After getting your URL:</p>
-                <ol style="line-height: 2;">
-                    <li>Click the <strong>☰ menu</strong> (top left)</li>
-                    <li>Click <strong>"+ Add New Sheet"</strong></li>
-                    <li>Enter a name and paste your URL</li>
-                    <li>Click <strong>"Save"</strong></li>
-                    <li>Your sheet will appear in the sidebar - click it to load!</li>
-                </ol>
-            </div>
+            <p>Real-time Footage Database • Accurate Duration Calculations</p>
         </div>
         
         <div class="sheet-config">
@@ -851,7 +713,6 @@
                         placeholder="Paste your Apps Script Web App URL here..."
                         style="flex: 1; padding: 15px; border: 2px solid #28a745; border-radius: 8px; font-size: 1em;"
                     >
-                    <button onclick="testConnection()" style="background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);">🧪 Test</button>
                     <button onclick="connectToSheet()" style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%);">🔗 Connect</button>
                 </div>
                 <div class="sheet-input-group" style="margin-top: 15px;">
@@ -890,13 +751,6 @@
             </div>
         </div>
         
-        <div id="headerInfoDisplay" style="display: none; padding: 20px 40px; background: #f8f9fa; border-bottom: 2px solid #e9ecef;">
-            <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea;">
-                <h3 style="color: #667eea; margin-bottom: 15px;">📋 Sheet Information</h3>
-                <div id="headerInfoContent" style="line-height: 1.8; color: #495057;"></div>
-            </div>
-        </div>
-        
         <div class="controls">
             <div class="control-group">
                 <label for="searchInput">🔍 Search</label>
@@ -913,6 +767,11 @@
                     <option value="clips-desc">Clip Count (Most First)</option>
                     <option value="clips-asc">Clip Count (Least First)</option>
                 </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="fpsInput">🎞️ FPS (Frame Rate)</label>
+                <input type="number" id="fpsInput" min="1" max="120" value="30" step="0.001" placeholder="30">
             </div>
             
             <div class="control-group">
@@ -934,8 +793,6 @@
             <div class="button-group">
                 <button class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
                 <button class="btn btn-secondary" onclick="resetFilters()">Reset All</button>
-                <button class="btn btn-success" onclick="copyPlainText()">📋 Copy as Table</button>
-                <button class="btn btn-success" onclick="copyAsTable()">📊 Copy with Summary</button>
                 <button class="btn btn-secondary" onclick="window.print()">🖨️ Print</button>
             </div>
         </div>
@@ -956,162 +813,146 @@
         let savedSheets = [];
         let currentSheetId = null;
         let editingSheetId = null;
-        let currentSheetName = '';
-        let currentSheetInfo = {};
+        let currentFPS = 30; // Default FPS
         
-        // Load saved sheets on startup - WITH CONFIG FILE SUPPORT
-        async function loadSavedSheets() {
+        // ============================================
+        // FIXED TIMECODE FUNCTIONS (Match Google Sheets Formula)
+        // ============================================
+        
+        /**
+         * Convert timecode string to frames
+         * Matches the Google Sheets LET formula logic
+         * @param {string} tc - Timecode in format HH:MM:SS:FF
+         * @param {number} fps - Frames per second
+         * @returns {number} Total frames
+         */
+        function timecodeToFrames(tc, fps = 30) {
+            // Handle empty or null values
+            if (!tc || tc === null || tc === undefined) return 0;
+            
+            // Convert to string and trim
+            const txt = tc.toString().trim();
+            if (txt === '' || txt === '00:00:00:00') return 0;
+            
+            // Check for negative sign or parentheses
+            const sign = (txt.startsWith('-') || txt.startsWith('(')) ? -1 : 1;
+            
+            // Remove all non-numeric and non-colon characters
+            const clean = txt.replace(/[^0-9:]/g, '');
+            if (clean === '') return 0;
+            
+            // Split by colon
+            const parts = clean.split(':');
+            
+            // Parse each part, defaulting to 0 if invalid
+            const h = parseInt(parts[0]) || 0;
+            const m = parseInt(parts[1]) || 0;
+            const s = parseInt(parts[2]) || 0;
+            const f = parseInt(parts[3]) || 0;
+            
+            // Calculate total frames: (h * 3600 * fps) + (m * 60 * fps) + (s * fps) + f
+            const totalFrames = sign * (h * 3600 * fps + m * 60 * fps + s * fps + f);
+            
+            return totalFrames;
+        }
+        
+        /**
+         * Convert frames to timecode string
+         * Matches the Google Sheets LET formula output
+         * @param {number} frames - Total frames
+         * @param {number} fps - Frames per second
+         * @returns {string} Timecode in format HH:MM:SS:FF
+         */
+        function framesToTimecode(frames, fps = 30) {
+            if (frames === 0) return '00:00:00:00';
+            
+            // Handle negative values
+            const signOut = frames < 0 ? '-' : '';
+            const df = Math.abs(Math.round(frames));
+            
+            // Calculate hours
+            const hours = Math.floor(df / (3600 * fps));
+            const rem_h = df % (3600 * fps);
+            
+            // Calculate minutes
+            const minutes = Math.floor(rem_h / (60 * fps));
+            const rem_m = rem_h % (60 * fps);
+            
+            // Calculate seconds
+            const seconds = Math.floor(rem_m / fps);
+            
+            // Calculate frames
+            const framesRemainder = rem_m % fps;
+            
+            // Format as HH:MM:SS:FF
+            const formatted = signOut + 
+                String(hours).padStart(2, '0') + ':' +
+                String(minutes).padStart(2, '0') + ':' +
+                String(seconds).padStart(2, '0') + ':' +
+                String(Math.floor(framesRemainder)).padStart(2, '0');
+            
+            return formatted;
+        }
+        
+        /**
+         * Get FPS value from input field
+         * Normalizes the FPS value (handles commas, semicolons, etc.)
+         */
+        function getCurrentFPS() {
+            const fpsInput = document.getElementById('fpsInput');
+            if (!fpsInput) return 30;
+            
+            let fpsValue = fpsInput.value.toString().trim();
+            
+            // If empty, use default 30
+            if (fpsValue === '') return 30;
+            
+            // Replace commas and semicolons with periods
+            fpsValue = fpsValue.replace(/[,;]/g, '.');
+            
+            // Parse as float
+            const fps = parseFloat(fpsValue);
+            
+            // Return 30 if invalid
+            if (isNaN(fps) || fps <= 0) return 30;
+            
+            return fps;
+        }
+        
+        /**
+         * Update FPS badge display
+         */
+        function updateFPSBadge() {
+            const fps = getCurrentFPS();
+            document.getElementById('fpsBadge').textContent = 'FPS: ' + fps;
+        }
+        
+        // Add event listener to FPS input
+        document.addEventListener('DOMContentLoaded', function() {
+            const fpsInput = document.getElementById('fpsInput');
+            if (fpsInput) {
+                fpsInput.addEventListener('change', function() {
+                    updateFPSBadge();
+                    // Recalculate if data is loaded
+                    if (archiveData.length > 0) {
+                        applyFilters();
+                    }
+                });
+            }
+        });
+        
+        // ============================================
+        // REST OF THE CODE (Sidebar, Modal, etc.)
+        // ============================================
+        
+        function loadSavedSheets() {
             const saved = localStorage.getItem('savedSheets');
             savedSheets = saved ? JSON.parse(saved) : [];
-            
-            // FIRST: Try to load from config file (for all users)
-            try {
-                console.log('Loading sheets from config file...');
-                const response = await fetch('sheets-config.json?t=' + Date.now());
-                if (response.ok) {
-                    const config = await response.json();
-                    if (config.sheets && Array.isArray(config.sheets)) {
-                        console.log('Found ' + config.sheets.length + ' sheets in config');
-                        
-                        // Merge config sheets with saved sheets
-                        config.sheets.forEach(configSheet => {
-                            if (!savedSheets.find(s => s.id === configSheet.id)) {
-                                savedSheets.push({
-                                    ...configSheet,
-                                    addedAt: new Date().toISOString(),
-                                    fromConfig: true
-                                });
-                            } else {
-                                // Update existing sheet from config
-                                const index = savedSheets.findIndex(s => s.id === configSheet.id);
-                                savedSheets[index] = {
-                                    ...configSheet,
-                                    addedAt: savedSheets[index].addedAt,
-                                    fromConfig: true
-                                };
-                            }
-                        });
-                        
-                        localStorage.setItem('savedSheets', JSON.stringify(savedSheets));
-                        console.log('Config loaded successfully!');
-                    }
-                }
-            } catch (e) {
-                console.log('No config file or error loading:', e.message);
-            }
-            
-            // SECOND: Check for shared sheet in URL (for individual shares)
-            let sharedData = null;
-            
-            // Method 1: Check query parameter ?s=...
-            const urlParams = new URLSearchParams(window.location.search);
-            const shareParam = urlParams.get('s');
-            
-            if (shareParam) {
-                try {
-                    console.log('Found share parameter, decoding...');
-                    const decoded = JSON.parse(decodeURIComponent(escape(atob(shareParam))));
-                    sharedData = {
-                        id: decoded.i,
-                        episode: decoded.e || '',
-                        name: decoded.n,
-                        url: decoded.u,
-                        production: decoded.p || '',
-                        project: decoded.j || '',
-                        researcher: decoded.r || '',
-                        contact: decoded.c || ''
-                    };
-                    console.log('Decoded data:', sharedData);
-                } catch (e) {
-                    console.error('Error decoding share parameter:', e);
-                    alert('⚠️ Invalid share link. Please ask for a new link.\n\nError: ' + e.message);
-                }
-            }
-            
-            // Method 2: Check hash #share=...
-            if (!sharedData) {
-                const hash = window.location.hash;
-                if (hash && hash.startsWith('#share=')) {
-                    try {
-                        console.log('Found hash share, decoding...');
-                        const encoded = hash.substring(7);
-                        const decoded = JSON.parse(decodeURIComponent(atob(encoded)));
-                        sharedData = {
-                            id: decoded.id || decoded.i,
-                            episode: decoded.episode || decoded.e || '',
-                            name: decoded.name || decoded.n,
-                            url: decoded.url || decoded.u,
-                            production: decoded.production || decoded.p || '',
-                            project: decoded.project || decoded.j || '',
-                            researcher: decoded.researcher || decoded.r || '',
-                            contact: decoded.contact || decoded.c || ''
-                        };
-                        console.log('Decoded hash data:', sharedData);
-                    } catch (e) {
-                        console.error('Error decoding hash:', e);
-                    }
-                }
-            }
-            
-            // If we found shared data, import it
-            if (sharedData && sharedData.id && sharedData.name && sharedData.url) {
-                console.log('Importing shared sheet...');
-                
-                // Check if sheet already exists
-                if (!savedSheets.find(s => s.id === sharedData.id)) {
-                    const newSheet = {
-                        id: sharedData.id,
-                        episode: sharedData.episode,
-                        name: sharedData.name,
-                        url: sharedData.url,
-                        production: sharedData.production,
-                        project: sharedData.project,
-                        researcher: sharedData.researcher,
-                        contact: sharedData.contact,
-                        addedAt: new Date().toISOString()
-                    };
-                    
-                    savedSheets.push(newSheet);
-                    localStorage.setItem('savedSheets', JSON.stringify(savedSheets));
-                    
-                    console.log('Sheet imported successfully!');
-                    
-                    // Clean URL
-                    const cleanUrl = window.location.origin + window.location.pathname;
-                    history.replaceState(null, null, cleanUrl);
-                    
-                    const displayName = newSheet.episode ? newSheet.episode + '_' + newSheet.name : newSheet.name;
-                    alert('✅ Sheet imported successfully!\n\n📋 ' + displayName + '\n\n✓ Production: ' + (newSheet.production || 'Not set') + '\n✓ Project: ' + (newSheet.project || 'Not set') + '\n\nThe sheet is now saved in your sidebar!\nClick it to load the data.');
-                } else {
-                    console.log('Sheet already exists, loading it...');
-                }
-                
-                renderSheetList();
-                
-                // Auto-load the shared sheet
-                if (savedSheets.find(s => s.id === sharedData.id)) {
-                    setTimeout(() => {
-                        loadSheet(sharedData.id);
-                    }, 500);
-                    return;
-                }
-            } else if (shareParam || (window.location.hash && window.location.hash.startsWith('#share='))) {
-                console.error('Share data incomplete:', sharedData);
-                alert('⚠️ Share link is incomplete or corrupted.\n\nPlease ask for a new link.');
-            }
-            
             renderSheetList();
             
-            // THIRD: Auto-load first sheet from config if available
-            if (savedSheets.length > 0) {
-                // Load last active sheet OR first config sheet
-                const lastActive = localStorage.getItem('lastActiveSheet');
-                if (lastActive && savedSheets.find(s => s.id === lastActive)) {
-                    loadSheet(lastActive);
-                } else {
-                    // Auto-load first sheet
-                    loadSheet(savedSheets[0].id);
-                }
+            const lastActive = localStorage.getItem('lastActiveSheet');
+            if (lastActive && savedSheets.find(s => s.id === lastActive)) {
+                loadSheet(lastActive);
             }
         }
         
@@ -1126,129 +967,16 @@
                 list.style.display = 'block';
                 emptyState.style.display = 'none';
                 
-                const sortedSheets = [...savedSheets].sort((a, b) => {
-                    const epA = a.episode || '999';
-                    const epB = b.episode || '999';
-                    return epA.localeCompare(epB);
-                });
-                
-                list.innerHTML = sortedSheets.map(sheet => {
-                    const displayName = sheet.episode ? `${sheet.episode}_${sheet.name}` : sheet.name;
-                    return `
+                list.innerHTML = savedSheets.map(sheet => `
                     <li class="sheet-item ${sheet.id === currentSheetId ? 'active' : ''}" onclick="loadSheet('${sheet.id}')">
-                        <div class="sheet-item-name">${displayName}</div>
+                        <div class="sheet-item-name">${sheet.name}</div>
                         <div class="sheet-item-url">${sheet.url.substring(0, 40)}...</div>
                         <div class="sheet-item-actions" onclick="event.stopPropagation()">
-                            <button class="action-btn" onclick="shareSheet('${sheet.id}')" title="Copy Share Link">🔗</button>
                             <button class="action-btn" onclick="editSheet('${sheet.id}')" title="Edit">✏️</button>
                             <button class="action-btn delete" onclick="deleteSheet('${sheet.id}')" title="Delete">🗑️</button>
                         </div>
                     </li>
-                `;
-                }).join('');
-            }
-        }
-        
-        // Share sheet - ULTRA RELIABLE VERSION
-        function shareSheet(id) {
-            const sheet = savedSheets.find(s => s.id === id);
-            if (!sheet) return;
-            
-            // Create share data object
-            const shareData = {
-                i: sheet.id,
-                e: sheet.episode || '',
-                n: sheet.name,
-                u: sheet.url,
-                p: sheet.production || '',
-                j: sheet.project || '',
-                r: sheet.researcher || '',
-                c: sheet.contact || ''
-            };
-            
-            // Encode as base64 for URL
-            try {
-                const jsonStr = JSON.stringify(shareData);
-                const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
-                
-                // Get current page URL
-                let baseUrl = window.location.origin + window.location.pathname;
-                const shareUrl = baseUrl + '?s=' + encoded;
-                
-                const displayName = sheet.episode ? `${sheet.episode}_${sheet.name}` : sheet.name;
-                
-                // Copy to clipboard
-                if (navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard.writeText(shareUrl).then(() => {
-                        alert('✅ Share link copied!\n\n📋 ' + displayName + '\n\n🔗 Send this link to anyone!\n\nThey will automatically get access to:\n• The sheet data\n• All your settings\n• Production info\n\nNo setup needed on their side! 🚀\n\n📎 Link format: ...?s=...');
-                    }).catch(() => {
-                        prompt('Copy this link to share:', shareUrl);
-                    });
-                } else {
-                    prompt('Copy this link to share:', shareUrl);
-                }
-            } catch (e) {
-                alert('❌ Error creating share link: ' + e.message);
-                console.error('Share error:', e);
-            }
-        }
-        
-        function testSharing() {
-            if (savedSheets.length === 0) {
-                alert('⚠️ No sheets to test!\n\nPlease add a sheet first.');
-                return;
-            }
-            
-            const sheet = savedSheets[0];
-            
-            // Create test share data
-            const shareData = {
-                i: sheet.id,
-                e: sheet.episode || '',
-                n: sheet.name,
-                u: sheet.url,
-                p: sheet.production || '',
-                j: sheet.project || '',
-                r: sheet.researcher || '',
-                c: sheet.contact || ''
-            };
-            
-            try {
-                const jsonStr = JSON.stringify(shareData);
-                const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
-                
-                let baseUrl = window.location.origin + window.location.pathname;
-                const shareUrl = baseUrl + '?s=' + encoded;
-                
-                const displayName = sheet.episode ? `${sheet.episode}_${sheet.name}` : sheet.name;
-                
-                let message = '✅ SHARING TEST RESULTS:\n\n';
-                message += '📋 Sheet: ' + displayName + '\n\n';
-                message += '🔗 Share URL:\n' + shareUrl.substring(0, 50) + '...\n\n';
-                message += '📊 Data encoded: ' + jsonStr.length + ' characters\n';
-                message += '📦 URL length: ' + shareUrl.length + ' characters\n\n';
-                message += '✓ Encoding: OK\n';
-                message += '✓ URL format: OK\n';
-                message += '✓ Data structure: OK\n\n';
-                message += 'To test:\n';
-                message += '1. Copy the full URL\n';
-                message += '2. Open incognito window\n';
-                message += '3. Paste and press Enter\n';
-                message += '4. Sheet should load automatically!\n\n';
-                message += 'Copy URL now?';
-                
-                if (confirm(message)) {
-                    if (navigator.clipboard && navigator.clipboard.writeText) {
-                        navigator.clipboard.writeText(shareUrl).then(() => {
-                            alert('✅ Test URL copied!\n\nNow open an incognito window and paste it!');
-                        });
-                    } else {
-                        prompt('Copy this test URL:', shareUrl);
-                    }
-                }
-            } catch (e) {
-                alert('❌ Test failed!\n\nError: ' + e.message);
-                console.error('Test error:', e);
+                `).join('');
             }
         }
         
@@ -1269,13 +997,8 @@
         function showAddSheetModal() {
             editingSheetId = null;
             document.getElementById('modalTitle').textContent = 'Add New Sheet';
-            document.getElementById('sheetEpisode').value = '';
             document.getElementById('sheetName').value = '';
             document.getElementById('sheetUrl').value = '';
-            document.getElementById('sheetProduction').value = '';
-            document.getElementById('sheetProject').value = '';
-            document.getElementById('sheetResearcher').value = '';
-            document.getElementById('sheetContact').value = '';
             document.getElementById('sheetModal').classList.add('show');
         }
         
@@ -1285,13 +1008,8 @@
             
             editingSheetId = id;
             document.getElementById('modalTitle').textContent = 'Edit Sheet';
-            document.getElementById('sheetEpisode').value = sheet.episode || '';
             document.getElementById('sheetName').value = sheet.name;
             document.getElementById('sheetUrl').value = sheet.url;
-            document.getElementById('sheetProduction').value = sheet.production || '';
-            document.getElementById('sheetProject').value = sheet.project || '';
-            document.getElementById('sheetResearcher').value = sheet.researcher || '';
-            document.getElementById('sheetContact').value = sheet.contact || '';
             document.getElementById('sheetModal').classList.add('show');
         }
         
@@ -1301,13 +1019,8 @@
         }
         
         function saveSheet() {
-            const episode = document.getElementById('sheetEpisode').value.trim();
             const name = document.getElementById('sheetName').value.trim();
             const url = document.getElementById('sheetUrl').value.trim();
-            const production = document.getElementById('sheetProduction').value.trim();
-            const project = document.getElementById('sheetProject').value.trim();
-            const researcher = document.getElementById('sheetResearcher').value.trim();
-            const contact = document.getElementById('sheetContact').value.trim();
             
             if (!name) {
                 alert('Please enter a name for this sheet');
@@ -1322,24 +1035,14 @@
             if (editingSheetId) {
                 const sheet = savedSheets.find(s => s.id === editingSheetId);
                 if (sheet) {
-                    sheet.episode = episode;
                     sheet.name = name;
                     sheet.url = url;
-                    sheet.production = production;
-                    sheet.project = project;
-                    sheet.researcher = researcher;
-                    sheet.contact = contact;
                 }
             } else {
                 const newSheet = {
                     id: 'sheet_' + Date.now(),
-                    episode: episode,
                     name: name,
                     url: url,
-                    production: production,
-                    project: project,
-                    researcher: researcher,
-                    contact: contact,
                     addedAt: new Date().toISOString()
                 };
                 savedSheets.push(newSheet);
@@ -1375,80 +1078,13 @@
             
             currentSheetId = id;
             connectedUrl = sheet.url;
-            currentSheetName = sheet.episode ? `${sheet.episode}_${sheet.name}` : sheet.name;
-            currentSheetInfo = {
-                production: sheet.production || '',
-                project: sheet.project || '',
-                episode: sheet.episode || '',
-                name: sheet.name || '',
-                researcher: sheet.researcher || '',
-                contact: sheet.contact || ''
-            };
             localStorage.setItem('lastActiveSheet', id);
-            
-            document.getElementById('activeSheetDisplay').textContent = '📂 Active: ' + currentSheetName;
-            updateHeaderInfoDisplay();
             
             document.getElementById('appsScriptUrl').value = sheet.url;
             renderSheetList();
             closeSidebar();
             
             refreshData();
-        }
-        
-        function updateHeaderInfoDisplay() {
-            const display = document.getElementById('headerInfoDisplay');
-            const content = document.getElementById('headerInfoContent');
-            
-            if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
-                let html = '';
-                if (currentSheetInfo.production) {
-                    html += '<div><strong>Production company:</strong> ' + currentSheetInfo.production + '</div>';
-                }
-                if (currentSheetInfo.project) {
-                    html += '<div><strong>Film project:</strong> ' + currentSheetInfo.project + '</div>';
-                }
-                if (currentSheetInfo.episode || currentSheetInfo.name) {
-                    const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
-                    html += '<div><strong>Episode:</strong> ' + episodeName + '</div>';
-                }
-                if (currentSheetInfo.researcher) {
-                    html += '<div><strong>Researcher:</strong> ' + currentSheetInfo.researcher + '</div>';
-                }
-                if (currentSheetInfo.contact) {
-                    html += '<div><strong>Contact:</strong> ' + currentSheetInfo.contact + '</div>';
-                }
-                content.innerHTML = html;
-                display.style.display = 'block';
-            } else {
-                display.style.display = 'none';
-            }
-        }
-        
-        function testConnection() {
-            const url = document.getElementById('appsScriptUrl').value.trim();
-            
-            if (!url) {
-                alert('Please paste your Apps Script Web App URL first!');
-                return;
-            }
-            
-            if (!url.includes('script.google.com')) {
-                alert('❌ Invalid URL!\n\nThe URL should start with: https://script.google.com/');
-                return;
-            }
-            
-            if (!url.includes('/exec')) {
-                alert('⚠️ Warning: URL should end with /exec');
-            }
-            
-            window.open(url, '_blank');
-            alert('✅ Opening your URL in a new tab!\n\nWhat to look for:\n• If you see JSON data → Success!\n• If you see "Authorization required" → Click through and authorize\n• If you see an error → Check the setup instructions');
-        }
-        
-        function toggleSetup() {
-            const setup = document.getElementById('setupInstructions');
-            setup.style.display = setup.style.display === 'none' ? 'block' : 'none';
         }
         
         function connectToSheet() {
@@ -1489,10 +1125,13 @@
                     throw new Error(`HTTP ${response.status}`);
                 }
                 
-                const data = await response.json();
+                const result = await response.json();
                 
-                if (data.error) {
-                    throw new Error(data.error);
+                // Handle both array response and object with data property
+                const data = Array.isArray(result) ? result : (result.data || result);
+                
+                if (result.error) {
+                    throw new Error(result.error);
                 }
                 
                 if (!Array.isArray(data) || data.length === 0) {
@@ -1502,6 +1141,7 @@
                 processData(data);
                 updateLiveStatus('success', 'Connected');
                 document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+                updateFPSBadge();
                 
             } catch (error) {
                 updateLiveStatus('error', 'Failed');
@@ -1518,6 +1158,7 @@
         }
         
         function processData(rows) {
+            const fps = getCurrentFPS();
             const archiveMap = new Map();
             
             rows.forEach(row => {
@@ -1545,37 +1186,24 @@
                 });
             });
             
+            // Calculate totals using the correct FPS
             archiveData = Array.from(archiveMap.values()).map(archive => {
-                const totalFrames = archive.clips.reduce((sum, clip) => sum + timecodeToFrames(clip.duration), 0);
+                const totalFrames = archive.clips.reduce((sum, clip) => {
+                    return sum + timecodeToFrames(clip.duration, fps);
+                }, 0);
+                
                 return {
                     name: archive.name,
                     entries: archive.clips.length,
                     clips: archive.clips,
                     totalFrames: totalFrames,
-                    duration: framesToTimecode(totalFrames),
+                    duration: framesToTimecode(totalFrames, fps),
                     type: totalFrames === 0 ? 'stills' : 'video'
                 };
             });
             
             populateArchiveFilter();
             resetFilters();
-        }
-        
-        function timecodeToFrames(tc) {
-            if (!tc || tc === '00:00:00:00') return 0;
-            const parts = tc.toString().split(':').map(p => parseInt(p) || 0);
-            if (parts.length !== 4) return 0;
-            const [h, m, s, f] = parts;
-            return h * 3600 * 30 + m * 60 * 30 + s * 30 + f;
-        }
-        
-        function framesToTimecode(frames) {
-            if (frames === 0) return '00:00:00:00';
-            const h = Math.floor(frames / (3600 * 30));
-            const m = Math.floor((frames % (3600 * 30)) / (60 * 30));
-            const s = Math.floor((frames % (60 * 30)) / 30);
-            const f = frames % 30;
-            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}:${String(f).padStart(2, '0')}`;
         }
         
         function updateLiveStatus(status, text) {
@@ -1716,10 +1344,21 @@
         }
         
         function applyFilters() {
+            const fps = getCurrentFPS();
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             const sortBy = document.getElementById('sortSelect').value;
             const filterArchive = document.getElementById('filterArchive').value;
             const viewMode = document.getElementById('viewMode').value;
+            
+            // Recalculate totals with current FPS
+            archiveData.forEach(archive => {
+                const totalFrames = archive.clips.reduce((sum, clip) => {
+                    return sum + timecodeToFrames(clip.duration, fps);
+                }, 0);
+                archive.totalFrames = totalFrames;
+                archive.duration = framesToTimecode(totalFrames, fps);
+                archive.type = totalFrames === 0 ? 'stills' : 'video';
+            });
             
             filteredData = archiveData.filter(archive => {
                 const matchesSearch = archive.name.toLowerCase().includes(searchTerm) ||
@@ -1750,6 +1389,7 @@
             });
             
             renderTables(filteredData);
+            updateFPSBadge();
         }
         
         function resetFilters() {
@@ -1761,6 +1401,7 @@
         }
         
         function updateStats(data) {
+            const fps = getCurrentFPS();
             const videoData = data.filter(a => a.type === 'video');
             const stillsData = data.filter(a => a.type === 'stills');
             const videoClips = videoData.reduce((sum, a) => sum + a.clips.length, 0);
@@ -1769,567 +1410,15 @@
             
             document.getElementById('videoClips').textContent = videoClips;
             document.getElementById('videoArchives').textContent = videoData.length;
-            document.getElementById('videoDuration').textContent = framesToTimecode(totalFrames);
+            document.getElementById('videoDuration').textContent = framesToTimecode(totalFrames, fps);
             document.getElementById('stillsCount').textContent = stillsCount;
             document.getElementById('stillsArchives').textContent = stillsData.length;
         }
         
-        function copyPlainText() {
-            const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
-            
-            if (!dataToUse || dataToUse.length === 0) {
-                alert('⚠️ No data to copy!\n\nPlease load a sheet first.');
-                return;
-            }
-            
-            const videoData = dataToUse.filter(a => a.type === 'video');
-            const stillsData = dataToUse.filter(a => a.type === 'stills');
-            
-            // PLAIN TABLE - NO COLORS, NO GRADIENTS
-            let html = '<html><head><style>';
-            html += 'body { font-family: Arial, sans-serif; font-size: 11pt; }';
-            html += 'table { border-collapse: collapse; width: 100%; margin-bottom: 20px; border: 1px solid #000; }';
-            html += 'th { background: #ffffff; color: #000000; padding: 8px; text-align: left; font-weight: bold; border: 1px solid #000; }';
-            html += 'td { padding: 8px; border: 1px solid #000; background: #ffffff; color: #000000; }';
-            html += '.main-title { font-size: 14pt; font-weight: bold; color: #000000; margin-bottom: 15px; text-align: center; }';
-            html += '.archive-name { font-weight: bold; margin-top: 15px; margin-bottom: 5px; font-size: 11pt; color: #000000; }';
-            html += '.total-row { background: #ffffff; font-weight: bold; border-top: 2px solid #000; }';
-            html += '.section-title { font-weight: bold; font-size: 12pt; margin: 15px 0 8px 0; color: #000000; }';
-            html += '.info-table { border: 1px solid #000; margin-bottom: 20px; }';
-            html += '.info-label { font-weight: bold; width: 180px; background: #ffffff; border: 1px solid #000; padding: 6px; }';
-            html += '.info-value { background: #ffffff; border: 1px solid #000; padding: 6px; }';
-            html += 'a { color: #0066cc; text-decoration: none; }';
-            html += '</style></head><body>';
-            
-            // Title
-            if (currentSheetName) {
-                html += '<div class="main-title">' + currentSheetName + '</div>';
-            }
-            
-            // Sheet Information - PLAIN TABLE
-            if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
-                html += '<table class="info-table">';
-                html += '<thead><tr><th colspan="2">Sheet Information</th></tr></thead>';
-                html += '<tbody>';
-                
-                if (currentSheetInfo.production) {
-                    html += '<tr><td class="info-label">Production company:</td>';
-                    html += '<td class="info-value">' + currentSheetInfo.production + '</td></tr>';
-                }
-                if (currentSheetInfo.project) {
-                    html += '<tr><td class="info-label">Film project:</td>';
-                    html += '<td class="info-value">' + currentSheetInfo.project + '</td></tr>';
-                }
-                if (currentSheetInfo.episode || currentSheetInfo.name) {
-                    const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
-                    html += '<tr><td class="info-label">Episode:</td>';
-                    html += '<td class="info-value">' + episodeName + '</td></tr>';
-                }
-                if (currentSheetInfo.researcher) {
-                    html += '<tr><td class="info-label">Researcher:</td>';
-                    html += '<td class="info-value">' + currentSheetInfo.researcher + '</td></tr>';
-                }
-                if (currentSheetInfo.contact) {
-                    html += '<tr><td class="info-label">Contact:</td>';
-                    html += '<td class="info-value">' + currentSheetInfo.contact + '</td></tr>';
-                }
-                html += '</tbody></table>';
-            }
-            
-            // Video Archives
-            if (videoData.length > 0) {
-                html += '<div class="section-title">VIDEO ARCHIVES</div>';
-                
-                videoData.forEach(archive => {
-                    html += '<div class="archive-name">' + archive.name + ' (' + archive.clips.length + ' clips)</div>';
-                    html += '<table>';
-                    html += '<thead><tr>';
-                    html += '<th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Source In</th><th>Source Out</th><th>Duration</th><th>Link</th>';
-                    html += '</tr></thead>';
-                    html += '<tbody>';
-                    
-                    archive.clips.forEach((clip, i) => {
-                        html += '<tr>';
-                        html += '<td>' + (i + 1) + '</td>';
-                        html += '<td>' + (clip.id || '') + '</td>';
-                        html += '<td>' + (clip.invNo || '') + '</td>';
-                        html += '<td>' + (clip.fileName || '') + '</td>';
-                        html += '<td>' + (clip.sourceIn || '') + '</td>';
-                        html += '<td>' + (clip.sourceOut || '') + '</td>';
-                        html += '<td>' + (clip.duration || '00:00:00:00') + '</td>';
-                        html += '<td>' + (clip.link ? '<a href="' + clip.link + '">Link</a>' : '') + '</td>';
-                        html += '</tr>';
-                    });
-                    
-                    html += '<tr class="total-row">';
-                    html += '<td colspan="6"><strong>TOTAL</strong></td>';
-                    html += '<td><strong>' + archive.duration + '</strong></td>';
-                    html += '<td></td>';
-                    html += '</tr>';
-                    html += '</tbody></table>';
-                });
-            }
-            
-            // Stills Archives
-            if (stillsData.length > 0) {
-                html += '<div class="section-title">STILLS / IMAGES</div>';
-                
-                stillsData.forEach(archive => {
-                    html += '<div class="archive-name">' + archive.name + ' (' + archive.entries + ' stills)</div>';
-                    html += '<table>';
-                    html += '<thead><tr>';
-                    html += '<th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Type</th><th>Link</th>';
-                    html += '</tr></thead>';
-                    html += '<tbody>';
-                    
-                    archive.clips.forEach((clip, i) => {
-                        html += '<tr>';
-                        html += '<td>' + (i + 1) + '</td>';
-                        html += '<td>' + (clip.id || '') + '</td>';
-                        html += '<td>' + (clip.invNo || '') + '</td>';
-                        html += '<td>' + (clip.fileName || '') + '</td>';
-                        html += '<td>Still Image</td>';
-                        html += '<td>' + (clip.link ? '<a href="' + clip.link + '">Link</a>' : '') + '</td>';
-                        html += '</tr>';
-                    });
-                    
-                    html += '<tr class="total-row">';
-                    html += '<td colspan="6"><strong>TOTAL: ' + archive.entries + ' Still Images</strong></td>';
-                    html += '</tr>';
-                    html += '</tbody></table>';
-                });
-            }
-            
-            html += '</body></html>';
-            
-            copyFormattedContent(html);
-        }
-        
-        function copyAsTable() {
-            const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
-            
-            if (!dataToUse || dataToUse.length === 0) {
-                alert('⚠️ No data to copy!\n\nPlease load a sheet first.');
-                return;
-            }
-            
-            const videoData = dataToUse.filter(a => a.type === 'video');
-            const stillsData = dataToUse.filter(a => a.type === 'stills');
-            const videoClips = videoData.reduce((sum, a) => sum + a.clips.length, 0);
-            const stillsCount = stillsData.reduce((sum, a) => sum + a.entries, 0);
-            const totalFrames = videoData.reduce((sum, a) => sum + a.totalFrames, 0);
-            const videoDuration = framesToTimecode(totalFrames);
-            
-            let html = '<html><head><style>';
-            html += 'body { font-family: Arial, sans-serif; }';
-            html += 'table { border-collapse: collapse; width: 100%; margin-bottom: 30px; }';
-            html += 'th { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px; text-align: left; font-weight: bold; border: 1px solid #ddd; }';
-            html += 'td { padding: 10px; border: 1px solid #ddd; }';
-            html += 'tr:nth-child(even) { background-color: #f8f9fa; }';
-            html += 'tr:hover { background-color: #e9ecef; }';
-            html += '.total-row { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: bold; }';
-            html += '.total-row.stills { background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); }';
-            html += '.archive-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; margin-top: 20px; font-size: 1.2em; font-weight: bold; border-radius: 8px 8px 0 0; }';
-            html += '.archive-header.stills { background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); }';
-            html += '.section-title { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; font-size: 1.5em; font-weight: bold; margin: 30px 0 20px 0; border-radius: 8px; }';
-            html += '.section-title.stills { background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); }';
-            html += '.main-title { font-size: 24pt; font-weight: bold; color: white; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin-bottom: 30px; padding: 25px; border-radius: 12px; text-align: center; }';
-            html += '.summary { background: #f8f9fa; padding: 20px; margin-bottom: 30px; border-radius: 8px; border: 2px solid #667eea; }';
-            html += '.summary h2 { color: #667eea; margin-bottom: 15px; }';
-            html += '.summary-row { display: flex; justify-content: space-between; margin: 10px 0; }';
-            html += '.summary-label { font-weight: bold; color: #495057; }';
-            html += '.summary-value { color: #667eea; font-weight: bold; }';
-            html += 'a { color: #667eea; text-decoration: none; }';
-            html += '</style></head><body>';
-            
-            if (currentSheetName) {
-                html += '<div class="main-title">📽️ ' + currentSheetName + '</div>';
-            }
-            
-            if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
-                html += '<table style="width: 100%; margin-bottom: 20px; border: 2px solid #667eea; background: #f8f9fa;">';
-                html += '<tr style="background: #667eea;"><td colspan="2" style="padding: 12px; color: white; font-weight: bold; font-size: 14pt;">Sheet Information</td></tr>';
-                
-                if (currentSheetInfo.production) {
-                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; width: 200px; border: 1px solid #dee;">Production company:</td>';
-                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.production + '</td></tr>';
-                }
-                if (currentSheetInfo.project) {
-                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Film project:</td>';
-                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.project + '</td></tr>';
-                }
-                if (currentSheetInfo.episode || currentSheetInfo.name) {
-                    const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
-                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Episode:</td>';
-                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + episodeName + '</td></tr>';
-                }
-                if (currentSheetInfo.researcher) {
-                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Researcher:</td>';
-                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.researcher + '</td></tr>';
-                }
-                if (currentSheetInfo.contact) {
-                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Contact:</td>';
-                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.contact + '</td></tr>';
-                }
-                html += '</table>';
-            }
-            
-            html += '<div class="summary">';
-            html += '<h2>📊 ARCHIVE REPORT SUMMARY</h2>';
-            html += '<div class="summary-row"><span class="summary-label">Video Clips:</span><span class="summary-value">' + videoClips + '</span></div>';
-            html += '<div class="summary-row"><span class="summary-label">Video Archives:</span><span class="summary-value">' + videoData.length + '</span></div>';
-            html += '<div class="summary-row"><span class="summary-label">Total Duration:</span><span class="summary-value">' + videoDuration + '</span></div>';
-            html += '<div class="summary-row"><span class="summary-label">Still Images:</span><span class="summary-value">' + stillsCount + '</span></div>';
-            html += '<div class="summary-row"><span class="summary-label">Stills Archives:</span><span class="summary-value">' + stillsData.length + '</span></div>';
-            html += '</div>';
-            
-            if (videoData.length > 0) {
-                html += '<div class="section-title">🎬 VIDEO ARCHIVES</div>';
-                
-                videoData.forEach(archive => {
-                    html += '<div class="archive-header">' + archive.name + ' (' + archive.clips.length + ' clips)</div>';
-                    html += '<table>';
-                    html += '<thead><tr>';
-                    html += '<th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Source In</th><th>Source Out</th><th>Duration</th><th>Link</th>';
-                    html += '</tr></thead>';
-                    html += '<tbody>';
-                    
-                    archive.clips.forEach((clip, i) => {
-                        html += '<tr>';
-                        html += '<td>' + (i + 1) + '</td>';
-                        html += '<td>' + (clip.id || '') + '</td>';
-                        html += '<td>' + (clip.invNo || '') + '</td>';
-                        html += '<td>' + (clip.fileName || '') + '</td>';
-                        html += '<td>' + (clip.sourceIn || '') + '</td>';
-                        html += '<td>' + (clip.sourceOut || '') + '</td>';
-                        html += '<td>' + (clip.duration || '00:00:00:00') + '</td>';
-                        html += '<td>' + (clip.link ? '<a href="' + clip.link + '">🔗</a>' : '') + '</td>';
-                        html += '</tr>';
-                    });
-                    
-                    html += '<tr class="total-row">';
-                    html += '<td colspan="6"><strong>TOTAL</strong></td>';
-                    html += '<td><strong>' + archive.duration + '</strong></td>';
-                    html += '<td></td>';
-                    html += '</tr>';
-                    html += '</tbody></table>';
-                });
-            }
-            
-            if (stillsData.length > 0) {
-                html += '<div class="section-title stills">📷 STILLS / IMAGES</div>';
-                
-                stillsData.forEach(archive => {
-                    html += '<div class="archive-header stills">' + archive.name + ' (' + archive.entries + ' stills)</div>';
-                    html += '<table>';
-                    html += '<thead><tr>';
-                    html += '<th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Type</th><th>Link</th>';
-                    html += '</tr></thead>';
-                    html += '<tbody>';
-                    
-                    archive.clips.forEach((clip, i) => {
-                        html += '<tr>';
-                        html += '<td>' + (i + 1) + '</td>';
-                        html += '<td>' + (clip.id || '') + '</td>';
-                        html += '<td>' + (clip.invNo || '') + '</td>';
-                        html += '<td>' + (clip.fileName || '') + '</td>';
-                        html += '<td>Still Image</td>';
-                        html += '<td>' + (clip.link ? '<a href="' + clip.link + '">🔗</a>' : '') + '</td>';
-                        html += '</tr>';
-                    });
-                    
-                    html += '<tr class="total-row stills">';
-                    html += '<td colspan="6"><strong>TOTAL: ' + archive.entries + ' Still Images</strong></td>';
-                    html += '</tr>';
-                    html += '</tbody></table>';
-                });
-            }
-            
-            html += '</body></html>';
-            
-            copyFormattedContent(html);
-        }
-        
-        function downloadAsExcel() {
-            const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
-            
-            if (!dataToUse || dataToUse.length === 0) {
-                alert('⚠️ No data to export!\n\nPlease load a sheet first.');
-                return;
-            }
-            
-            const videoData = dataToUse.filter(a => a.type === 'video');
-            const stillsData = dataToUse.filter(a => a.type === 'stills');
-            
-            let csv = '';
-            
-            // Header info
-            if (currentSheetName) {
-                csv += currentSheetName + '\n\n';
-            }
-            
-            if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
-                csv += 'SHEET INFORMATION\n';
-                if (currentSheetInfo.production) csv += 'Production company:,' + csvEscape(currentSheetInfo.production) + '\n';
-                if (currentSheetInfo.project) csv += 'Film project:,' + csvEscape(currentSheetInfo.project) + '\n';
-                if (currentSheetInfo.episode || currentSheetInfo.name) {
-                    const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
-                    csv += 'Episode:,' + csvEscape(episodeName) + '\n';
-                }
-                if (currentSheetInfo.researcher) csv += 'Researcher:,' + csvEscape(currentSheetInfo.researcher) + '\n';
-                if (currentSheetInfo.contact) csv += 'Contact:,' + csvEscape(currentSheetInfo.contact) + '\n';
-                csv += '\n';
-            }
-            
-            // Video archives
-            if (videoData.length > 0) {
-                csv += 'VIDEO ARCHIVES\n\n';
-                
-                videoData.forEach(archive => {
-                    csv += archive.name + ' (' + archive.clips.length + ' clips)\n';
-                    csv += '#,ID,Inv No,File Name,Source In,Source Out,Duration,Link\n';
-                    
-                    archive.clips.forEach((clip, i) => {
-                        csv += (i + 1) + ',';
-                        csv += csvEscape(clip.id || '') + ',';
-                        csv += csvEscape(clip.invNo || '') + ',';
-                        csv += csvEscape(clip.fileName || '') + ',';
-                        csv += csvEscape(clip.sourceIn || '') + ',';
-                        csv += csvEscape(clip.sourceOut || '') + ',';
-                        csv += csvEscape(clip.duration || '00:00:00:00') + ',';
-                        csv += csvEscape(clip.link || '') + '\n';
-                    });
-                    
-                    csv += 'TOTAL,,,,,,' + archive.duration + ',\n\n';
-                });
-            }
-            
-            // Stills archives
-            if (stillsData.length > 0) {
-                csv += 'STILLS / IMAGES\n\n';
-                
-                stillsData.forEach(archive => {
-                    csv += archive.name + ' (' + archive.entries + ' stills)\n';
-                    csv += '#,ID,Inv No,File Name,Type,Link\n';
-                    
-                    archive.clips.forEach((clip, i) => {
-                        csv += (i + 1) + ',';
-                        csv += csvEscape(clip.id || '') + ',';
-                        csv += csvEscape(clip.invNo || '') + ',';
-                        csv += csvEscape(clip.fileName || '') + ',';
-                        csv += 'Still Image,';
-                        csv += csvEscape(clip.link || '') + '\n';
-                    });
-                    
-                    csv += 'TOTAL: ' + archive.entries + ' Still Images\n\n';
-                });
-            }
-            
-            // Download file
-            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            
-            const filename = (currentSheetName || 'archive-report') + '_' + new Date().toISOString().split('T')[0] + '.csv';
-            
-            link.setAttribute('href', url);
-            link.setAttribute('download', filename);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            alert('✅ Excel file downloaded!\n\n📁 File: ' + filename + '\n\n✓ Open in Excel\n✓ All data included\n✓ Works on any computer!');
-        }
-        
-        function copyAsPlainTextOnly() {
-            const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
-            
-            if (!dataToUse || dataToUse.length === 0) {
-                alert('⚠️ No data to copy!\n\nPlease load a sheet first.');
-                return;
-            }
-            
-            const videoData = dataToUse.filter(a => a.type === 'video');
-            const stillsData = dataToUse.filter(a => a.type === 'stills');
-            
-            let text = '';
-            
-            // Header
-            if (currentSheetName) {
-                text += '========================================\n';
-                text += currentSheetName + '\n';
-                text += '========================================\n\n';
-            }
-            
-            // Sheet Information
-            if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
-                text += 'SHEET INFORMATION\n';
-                text += '----------------------------------------\n';
-                if (currentSheetInfo.production) text += 'Production company: ' + currentSheetInfo.production + '\n';
-                if (currentSheetInfo.project) text += 'Film project: ' + currentSheetInfo.project + '\n';
-                if (currentSheetInfo.episode || currentSheetInfo.name) {
-                    const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
-                    text += 'Episode: ' + episodeName + '\n';
-                }
-                if (currentSheetInfo.researcher) text += 'Researcher: ' + currentSheetInfo.researcher + '\n';
-                if (currentSheetInfo.contact) text += 'Contact: ' + currentSheetInfo.contact + '\n';
-                text += '\n';
-            }
-            
-            // Video Archives
-            if (videoData.length > 0) {
-                text += '========================================\n';
-                text += 'VIDEO ARCHIVES\n';
-                text += '========================================\n\n';
-                
-                videoData.forEach(archive => {
-                    text += archive.name + ' (' + archive.clips.length + ' clips)\n';
-                    text += '----------------------------------------\n';
-                    
-                    // Column headers
-                    text += padRight('#', 5) + ' | ';
-                    text += padRight('ID', 10) + ' | ';
-                    text += padRight('Inv No', 10) + ' | ';
-                    text += padRight('File Name', 30) + ' | ';
-                    text += padRight('Source In', 12) + ' | ';
-                    text += padRight('Source Out', 12) + ' | ';
-                    text += padRight('Duration', 12) + '\n';
-                    text += '-'.repeat(120) + '\n';
-                    
-                    archive.clips.forEach((clip, i) => {
-                        text += padRight((i + 1).toString(), 5) + ' | ';
-                        text += padRight(clip.id || '-', 10) + ' | ';
-                        text += padRight(clip.invNo || '-', 10) + ' | ';
-                        text += padRight(clip.fileName || '-', 30) + ' | ';
-                        text += padRight(clip.sourceIn || '-', 12) + ' | ';
-                        text += padRight(clip.sourceOut || '-', 12) + ' | ';
-                        text += padRight(clip.duration || '00:00:00:00', 12) + '\n';
-                    });
-                    
-                    text += '-'.repeat(120) + '\n';
-                    text += 'TOTAL DURATION: ' + archive.duration + '\n';
-                    text += '\n\n';
-                });
-            }
-            
-            // Stills Archives
-            if (stillsData.length > 0) {
-                text += '========================================\n';
-                text += 'STILLS / IMAGES\n';
-                text += '========================================\n\n';
-                
-                stillsData.forEach(archive => {
-                    text += archive.name + ' (' + archive.entries + ' stills)\n';
-                    text += '----------------------------------------\n';
-                    
-                    // Column headers
-                    text += padRight('#', 5) + ' | ';
-                    text += padRight('ID', 10) + ' | ';
-                    text += padRight('Inv No', 10) + ' | ';
-                    text += padRight('File Name', 40) + ' | ';
-                    text += padRight('Type', 15) + '\n';
-                    text += '-'.repeat(100) + '\n';
-                    
-                    archive.clips.forEach((clip, i) => {
-                        text += padRight((i + 1).toString(), 5) + ' | ';
-                        text += padRight(clip.id || '-', 10) + ' | ';
-                        text += padRight(clip.invNo || '-', 10) + ' | ';
-                        text += padRight(clip.fileName || '-', 40) + ' | ';
-                        text += padRight('Still Image', 15) + '\n';
-                    });
-                    
-                    text += '-'.repeat(100) + '\n';
-                    text += 'TOTAL: ' + archive.entries + ' Still Images\n';
-                    text += '\n\n';
-                });
-            }
-            
-            // Copy to clipboard using modern API with fallback
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text).then(() => {
-                    alert('✅ Text copied successfully!\n\n📋 Format: Plain Text\n✓ Works in Thunderbird\n✓ Works in Firefox\n✓ No formatting issues\n\nPaste it anywhere!');
-                }).catch(err => {
-                    // Fallback to textarea method
-                    fallbackCopyText(text);
-                });
-            } else {
-                // Old browser fallback
-                fallbackCopyText(text);
-            }
-        }
-        
-        function padRight(str, length) {
-            str = str.toString();
-            if (str.length > length) return str.substring(0, length - 3) + '...';
-            return str + ' '.repeat(Math.max(0, length - str.length));
-        }
-        
-        function fallbackCopyText(text) {
-            const textarea = document.createElement('textarea');
-            textarea.value = text;
-            textarea.style.position = 'fixed';
-            textarea.style.top = '-9999px';
-            textarea.style.left = '-9999px';
-            document.body.appendChild(textarea);
-            textarea.focus();
-            textarea.select();
-            
-            try {
-                const successful = document.execCommand('copy');
-                document.body.removeChild(textarea);
-                if (successful) {
-                    alert('✅ Text copied!\n\n📋 Paste in Thunderbird now!');
-                } else {
-                    throw new Error('Copy failed');
-                }
-            } catch (err) {
-                document.body.removeChild(textarea);
-                prompt('Copy this text manually (Ctrl+C):', text.substring(0, 500) + '...\n\n(Text is truncated in this dialog, but full version will be copied when you click OK)');
-            }
-        }
-        
-        function csvEscape(value) {
-            if (value === null || value === undefined) return '';
-            const str = value.toString();
-            if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-                return '"' + str.replace(/"/g, '""') + '"';
-            }
-            return str;
-        }
-        
-        function copyFormattedContent(html) {
-            const container = document.createElement('div');
-            container.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
-            container.innerHTML = html;
-            document.body.appendChild(container);
-            
-            const range = document.createRange();
-            range.selectNodeContents(container);
-            const selection = window.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(range);
-            
-            try {
-                const successful = document.execCommand('copy');
-                
-                selection.removeAllRanges();
-                document.body.removeChild(container);
-                
-                if (successful) {
-                    alert('✅ SUCCESS!\n\nFormatted table copied!\n\nNow:\n1. Open Gmail/Word/Excel\n2. Press Ctrl+V (or Cmd+V)\n3. See the beautiful table! 🎨');
-                } else {
-                    throw new Error('Copy command failed');
-                }
-            } catch (err) {
-                if (document.body.contains(container)) {
-                    document.body.removeChild(container);
-                }
-                alert('⚠️ Copy failed. Please try:\n1. Using Chrome or Firefox\n2. Making sure the page is in focus\n3. Clicking the button again');
-            }
-        }
-        
-        window.onload = () => loadSavedSheets();
+        window.onload = function() {
+            loadSavedSheets();
+            updateFPSBadge();
+        };
     </script>
 </body>
 </html>
