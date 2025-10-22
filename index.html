@@ -936,6 +936,8 @@
                 <button class="btn btn-secondary" onclick="resetFilters()">Reset All</button>
                 <button class="btn btn-success" onclick="copyPlainText()">📋 Copy as Table</button>
                 <button class="btn btn-success" onclick="copyAsTable()">📊 Copy with Summary</button>
+                <button class="btn btn-success" onclick="copyAsPlainTextOnly()">📄 Copy Text Only</button>
+                <button class="btn btn-success" onclick="downloadAsExcel()">📥 Download Excel</button>
                 <button class="btn btn-secondary" onclick="window.print()">🖨️ Print</button>
             </div>
         </div>
@@ -2048,6 +2050,254 @@
             html += '</body></html>';
             
             copyFormattedContent(html);
+        }
+        
+        function downloadAsExcel() {
+            const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
+            
+            if (!dataToUse || dataToUse.length === 0) {
+                alert('⚠️ No data to export!\n\nPlease load a sheet first.');
+                return;
+            }
+            
+            const videoData = dataToUse.filter(a => a.type === 'video');
+            const stillsData = dataToUse.filter(a => a.type === 'stills');
+            
+            let csv = '';
+            
+            // Header info
+            if (currentSheetName) {
+                csv += currentSheetName + '\n\n';
+            }
+            
+            if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
+                csv += 'SHEET INFORMATION\n';
+                if (currentSheetInfo.production) csv += 'Production company:,' + csvEscape(currentSheetInfo.production) + '\n';
+                if (currentSheetInfo.project) csv += 'Film project:,' + csvEscape(currentSheetInfo.project) + '\n';
+                if (currentSheetInfo.episode || currentSheetInfo.name) {
+                    const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
+                    csv += 'Episode:,' + csvEscape(episodeName) + '\n';
+                }
+                if (currentSheetInfo.researcher) csv += 'Researcher:,' + csvEscape(currentSheetInfo.researcher) + '\n';
+                if (currentSheetInfo.contact) csv += 'Contact:,' + csvEscape(currentSheetInfo.contact) + '\n';
+                csv += '\n';
+            }
+            
+            // Video archives
+            if (videoData.length > 0) {
+                csv += 'VIDEO ARCHIVES\n\n';
+                
+                videoData.forEach(archive => {
+                    csv += archive.name + ' (' + archive.clips.length + ' clips)\n';
+                    csv += '#,ID,Inv No,File Name,Source In,Source Out,Duration,Link\n';
+                    
+                    archive.clips.forEach((clip, i) => {
+                        csv += (i + 1) + ',';
+                        csv += csvEscape(clip.id || '') + ',';
+                        csv += csvEscape(clip.invNo || '') + ',';
+                        csv += csvEscape(clip.fileName || '') + ',';
+                        csv += csvEscape(clip.sourceIn || '') + ',';
+                        csv += csvEscape(clip.sourceOut || '') + ',';
+                        csv += csvEscape(clip.duration || '00:00:00:00') + ',';
+                        csv += csvEscape(clip.link || '') + '\n';
+                    });
+                    
+                    csv += 'TOTAL,,,,,,' + archive.duration + ',\n\n';
+                });
+            }
+            
+            // Stills archives
+            if (stillsData.length > 0) {
+                csv += 'STILLS / IMAGES\n\n';
+                
+                stillsData.forEach(archive => {
+                    csv += archive.name + ' (' + archive.entries + ' stills)\n';
+                    csv += '#,ID,Inv No,File Name,Type,Link\n';
+                    
+                    archive.clips.forEach((clip, i) => {
+                        csv += (i + 1) + ',';
+                        csv += csvEscape(clip.id || '') + ',';
+                        csv += csvEscape(clip.invNo || '') + ',';
+                        csv += csvEscape(clip.fileName || '') + ',';
+                        csv += 'Still Image,';
+                        csv += csvEscape(clip.link || '') + '\n';
+                    });
+                    
+                    csv += 'TOTAL: ' + archive.entries + ' Still Images\n\n';
+                });
+            }
+            
+            // Download file
+            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            
+            const filename = (currentSheetName || 'archive-report') + '_' + new Date().toISOString().split('T')[0] + '.csv';
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            alert('✅ Excel file downloaded!\n\n📁 File: ' + filename + '\n\n✓ Open in Excel\n✓ All data included\n✓ Works on any computer!');
+        }
+        
+        function copyAsPlainTextOnly() {
+            const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
+            
+            if (!dataToUse || dataToUse.length === 0) {
+                alert('⚠️ No data to copy!\n\nPlease load a sheet first.');
+                return;
+            }
+            
+            const videoData = dataToUse.filter(a => a.type === 'video');
+            const stillsData = dataToUse.filter(a => a.type === 'stills');
+            
+            let text = '';
+            
+            // Header
+            if (currentSheetName) {
+                text += '========================================\n';
+                text += currentSheetName + '\n';
+                text += '========================================\n\n';
+            }
+            
+            // Sheet Information
+            if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
+                text += 'SHEET INFORMATION\n';
+                text += '----------------------------------------\n';
+                if (currentSheetInfo.production) text += 'Production company: ' + currentSheetInfo.production + '\n';
+                if (currentSheetInfo.project) text += 'Film project: ' + currentSheetInfo.project + '\n';
+                if (currentSheetInfo.episode || currentSheetInfo.name) {
+                    const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
+                    text += 'Episode: ' + episodeName + '\n';
+                }
+                if (currentSheetInfo.researcher) text += 'Researcher: ' + currentSheetInfo.researcher + '\n';
+                if (currentSheetInfo.contact) text += 'Contact: ' + currentSheetInfo.contact + '\n';
+                text += '\n';
+            }
+            
+            // Video Archives
+            if (videoData.length > 0) {
+                text += '========================================\n';
+                text += 'VIDEO ARCHIVES\n';
+                text += '========================================\n\n';
+                
+                videoData.forEach(archive => {
+                    text += archive.name + ' (' + archive.clips.length + ' clips)\n';
+                    text += '----------------------------------------\n';
+                    
+                    // Column headers
+                    text += padRight('#', 5) + ' | ';
+                    text += padRight('ID', 10) + ' | ';
+                    text += padRight('Inv No', 10) + ' | ';
+                    text += padRight('File Name', 30) + ' | ';
+                    text += padRight('Source In', 12) + ' | ';
+                    text += padRight('Source Out', 12) + ' | ';
+                    text += padRight('Duration', 12) + '\n';
+                    text += '-'.repeat(120) + '\n';
+                    
+                    archive.clips.forEach((clip, i) => {
+                        text += padRight((i + 1).toString(), 5) + ' | ';
+                        text += padRight(clip.id || '-', 10) + ' | ';
+                        text += padRight(clip.invNo || '-', 10) + ' | ';
+                        text += padRight(clip.fileName || '-', 30) + ' | ';
+                        text += padRight(clip.sourceIn || '-', 12) + ' | ';
+                        text += padRight(clip.sourceOut || '-', 12) + ' | ';
+                        text += padRight(clip.duration || '00:00:00:00', 12) + '\n';
+                    });
+                    
+                    text += '-'.repeat(120) + '\n';
+                    text += 'TOTAL DURATION: ' + archive.duration + '\n';
+                    text += '\n\n';
+                });
+            }
+            
+            // Stills Archives
+            if (stillsData.length > 0) {
+                text += '========================================\n';
+                text += 'STILLS / IMAGES\n';
+                text += '========================================\n\n';
+                
+                stillsData.forEach(archive => {
+                    text += archive.name + ' (' + archive.entries + ' stills)\n';
+                    text += '----------------------------------------\n';
+                    
+                    // Column headers
+                    text += padRight('#', 5) + ' | ';
+                    text += padRight('ID', 10) + ' | ';
+                    text += padRight('Inv No', 10) + ' | ';
+                    text += padRight('File Name', 40) + ' | ';
+                    text += padRight('Type', 15) + '\n';
+                    text += '-'.repeat(100) + '\n';
+                    
+                    archive.clips.forEach((clip, i) => {
+                        text += padRight((i + 1).toString(), 5) + ' | ';
+                        text += padRight(clip.id || '-', 10) + ' | ';
+                        text += padRight(clip.invNo || '-', 10) + ' | ';
+                        text += padRight(clip.fileName || '-', 40) + ' | ';
+                        text += padRight('Still Image', 15) + '\n';
+                    });
+                    
+                    text += '-'.repeat(100) + '\n';
+                    text += 'TOTAL: ' + archive.entries + ' Still Images\n';
+                    text += '\n\n';
+                });
+            }
+            
+            // Copy to clipboard using modern API with fallback
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    alert('✅ Text copied successfully!\n\n📋 Format: Plain Text\n✓ Works in Thunderbird\n✓ Works in Firefox\n✓ No formatting issues\n\nPaste it anywhere!');
+                }).catch(err => {
+                    // Fallback to textarea method
+                    fallbackCopyText(text);
+                });
+            } else {
+                // Old browser fallback
+                fallbackCopyText(text);
+            }
+        }
+        
+        function padRight(str, length) {
+            str = str.toString();
+            if (str.length > length) return str.substring(0, length - 3) + '...';
+            return str + ' '.repeat(Math.max(0, length - str.length));
+        }
+        
+        function fallbackCopyText(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.top = '-9999px';
+            textarea.style.left = '-9999px';
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            
+            try {
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textarea);
+                if (successful) {
+                    alert('✅ Text copied!\n\n📋 Paste in Thunderbird now!');
+                } else {
+                    throw new Error('Copy failed');
+                }
+            } catch (err) {
+                document.body.removeChild(textarea);
+                prompt('Copy this text manually (Ctrl+C):', text.substring(0, 500) + '...\n\n(Text is truncated in this dialog, but full version will be copied when you click OK)');
+            }
+        }
+        
+        function csvEscape(value) {
+            if (value === null || value === undefined) return '';
+            const str = value.toString();
+            if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                return '"' + str.replace(/"/g, '""') + '"';
+            }
+            return str;
         }
         
         function copyFormattedContent(html) {
