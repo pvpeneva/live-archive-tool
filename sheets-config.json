@@ -1,1 +1,14 @@
-
+{
+  "sheets": [
+    {
+      "id": "sheet_01",
+      "episode": "01",
+      "name": "DUCKWITZ",
+      "url": "https://script.google.com/macros/s/AKfycbzDu_ks4aDd5LqmvURagYD2ov6UJg_kWSUPkHod0YrmDG7X5BfcuDG90tLfiCYA_L3-mQ/exec",
+      "production": "Michael W. King Productions, LLC., USA",
+      "project": "The Rescuers",
+      "researcher": "Frank Drauschke",
+      "contact": "research@drauschke.de"
+    }
+  ]
+}
