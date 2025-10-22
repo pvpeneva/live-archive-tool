@@ -959,12 +959,48 @@
         let currentSheetName = '';
         let currentSheetInfo = {};
         
-        // Load saved sheets on startup - ULTRA RELIABLE VERSION
-        function loadSavedSheets() {
+        // Load saved sheets on startup - WITH CONFIG FILE SUPPORT
+        async function loadSavedSheets() {
             const saved = localStorage.getItem('savedSheets');
             savedSheets = saved ? JSON.parse(saved) : [];
             
-            // Check for shared sheet in URL (multiple methods)
+            // FIRST: Try to load from config file (for all users)
+            try {
+                console.log('Loading sheets from config file...');
+                const response = await fetch('sheets-config.json?t=' + Date.now());
+                if (response.ok) {
+                    const config = await response.json();
+                    if (config.sheets && Array.isArray(config.sheets)) {
+                        console.log('Found ' + config.sheets.length + ' sheets in config');
+                        
+                        // Merge config sheets with saved sheets
+                        config.sheets.forEach(configSheet => {
+                            if (!savedSheets.find(s => s.id === configSheet.id)) {
+                                savedSheets.push({
+                                    ...configSheet,
+                                    addedAt: new Date().toISOString(),
+                                    fromConfig: true
+                                });
+                            } else {
+                                // Update existing sheet from config
+                                const index = savedSheets.findIndex(s => s.id === configSheet.id);
+                                savedSheets[index] = {
+                                    ...configSheet,
+                                    addedAt: savedSheets[index].addedAt,
+                                    fromConfig: true
+                                };
+                            }
+                        });
+                        
+                        localStorage.setItem('savedSheets', JSON.stringify(savedSheets));
+                        console.log('Config loaded successfully!');
+                    }
+                }
+            } catch (e) {
+                console.log('No config file or error loading:', e.message);
+            }
+            
+            // SECOND: Check for shared sheet in URL (for individual shares)
             let sharedData = null;
             
             // Method 1: Check query parameter ?s=...
@@ -1066,10 +1102,16 @@
             
             renderSheetList();
             
-            // Load last active sheet
-            const lastActive = localStorage.getItem('lastActiveSheet');
-            if (lastActive && savedSheets.find(s => s.id === lastActive)) {
-                loadSheet(lastActive);
+            // THIRD: Auto-load first sheet from config if available
+            if (savedSheets.length > 0) {
+                // Load last active sheet OR first config sheet
+                const lastActive = localStorage.getItem('lastActiveSheet');
+                if (lastActive && savedSheets.find(s => s.id === lastActive)) {
+                    loadSheet(lastActive);
+                } else {
+                    // Auto-load first sheet
+                    loadSheet(savedSheets[0].id);
+                }
             }
         }
         
