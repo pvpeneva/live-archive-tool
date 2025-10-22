@@ -2291,6 +2291,63 @@
             return str;
         }
         
+        // Missing copyFormattedContent function - this was causing copy buttons to fail
+        function copyFormattedContent(html) {
+            // Try modern clipboard API first
+            if (navigator.clipboard && navigator.clipboard.write) {
+                const blob = new Blob([html], { type: 'text/html' });
+                const clipboardItem = new ClipboardItem({ 'text/html': blob });
+                
+                navigator.clipboard.write([clipboardItem]).then(() => {
+                    alert('✅ Table copied successfully!\n\n📋 Format: Rich HTML Table\n✓ Paste in Word/Excel\n✓ Paste in Thunderbird\n✓ Keeps formatting!');
+                }).catch(err => {
+                    // Fallback to textarea method
+                    fallbackCopyHTML(html);
+                });
+            } else {
+                // Old browser fallback
+                fallbackCopyHTML(html);
+            }
+        }
+        
+        function fallbackCopyHTML(html) {
+            // Create a temporary div with the HTML content
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            tempDiv.style.position = 'absolute';
+            tempDiv.style.left = '-9999px';
+            tempDiv.style.top = '-9999px';
+            tempDiv.style.opacity = '0';
+            
+            document.body.appendChild(tempDiv);
+            
+            // Create a range and select the content
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            
+            const range = document.createRange();
+            range.selectNodeContents(tempDiv);
+            selection.addRange(range);
+            
+            try {
+                const successful = document.execCommand('copy');
+                document.body.removeChild(tempDiv);
+                selection.removeAllRanges();
+                
+                if (successful) {
+                    alert('✅ Table copied!\n\n📋 Paste in Word/Excel/Thunderbird now!');
+                } else {
+                    throw new Error('Copy failed');
+                }
+            } catch (err) {
+                document.body.removeChild(tempDiv);
+                selection.removeAllRanges();
+                
+                // Final fallback - show HTML in a prompt
+                alert('⚠️ Copy failed. Your browser may not support this feature.\n\nTry using the "📋 Copy as Plain Text" button instead, or use a modern browser like Chrome/Firefox.');
+            }
+        }
+        
         window.onload = () => loadSavedSheets();
     </script>
 </body>
