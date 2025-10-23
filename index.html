@@ -1467,11 +1467,13 @@
                 if (!archive) return;
                 
                 const id = (row.ID || row.id || '').toString().trim();
-                const invNo = (row.inv_no || row['inv no'] || row['Inv No'] || '').toString().trim();
-                const fileName = (row.FILE_NAME || row['FILE NAME'] || row['File Name'] || '').toString().trim();
-                // FIX: Read ONLY from SOURCE_DURATION (Column N), ignore Column O
+                const invNo = (row['inv no'] || row.inv_no || row['Inv No'] || '').toString().trim();
+                const fileName = (row['FILE NAME'] || row.FILE_NAME || row['File Name'] || '').toString().trim();
+                // FIX: Read from SOURCE DURATION FORMULA (Column N)
                 let duration = '00:00:00:00';
-                if (row.SOURCE_DURATION) {
+                if (row['SOURCE DURATION FORMULA']) {
+                    duration = row['SOURCE DURATION FORMULA'].toString().trim();
+                } else if (row.SOURCE_DURATION) {
                     duration = row.SOURCE_DURATION.toString().trim();
                 } else if (row['SOURCE DURATION']) {
                     duration = row['SOURCE DURATION'].toString().trim();
@@ -1481,8 +1483,8 @@
                 if (!duration || duration === '' || duration === '0') {
                     duration = '00:00:00:00';
                 }
-                const sourceIn = (row.SOURCE_IN || row['SOURCE IN'] || row['Source In'] || row.SEQUENCE_IN || row['SEQUENCE IN'] || '').toString().trim();
-                const sourceOut = (row.SOURCE_OUT || row['SOURCE OUT'] || row['Source Out'] || row.SEQUENCE_OUT || row['SEQUENCE OUT'] || '').toString().trim();
+                const sourceIn = (row['SOURCE IN'] || row.SOURCE_IN || row['Source In'] || row['SEQUENCE IN'] || row.SEQUENCE_IN || '').toString().trim();
+                const sourceOut = (row['SOURCE OUT'] || row.SOURCE_OUT || row['Source Out'] || row['SEQUENCE OUT'] || row.SEQUENCE_OUT || '').toString().trim();
                 const link = (row.link || row.Link || row.URL || '').toString().trim();
                 
                 if (!archiveMap.has(archive)) {
@@ -1504,8 +1506,11 @@
                 const fps = 30;
                 
                 // Calculate total frames with detected FPS
-                const totalFrames = archive.allDurations.reduce((sum, tc) => 
-                    sum + timecodeToFrames(tc, fps), 0
+                // Match Google Sheets TCSUM: ROUND the final sum
+                const totalFrames = Math.round(
+                    archive.allDurations.reduce((sum, tc) => 
+                        sum + timecodeToFrames(tc, fps), 0
+                    )
                 );
                 
                 return {
@@ -1545,18 +1550,29 @@
             if (parts.length !== 4) return 0;
             const [h, m, s, f] = parts;
             
-            // Direct conversion WITHOUT normalization
-            // Duration values are already calculated correctly in Google Sheets
-            return h * 3600 * fps + m * 60 * fps + s * fps + f;
+            // Match Google Sheets TCSUM formula: use ROUND on frames
+            const frames = h * 3600 * fps + m * 60 * fps + s * fps + f;
+            return Math.round(frames);
         }
         
         function framesToTimecode(frames, fps) {
             if (frames === 0) return '00:00:00:00';
-            const h = Math.floor(frames / (3600 * fps));
-            const m = Math.floor((frames % (3600 * fps)) / (60 * fps));
-            const s = Math.floor((frames % (60 * fps)) / fps);
-            const f = frames % fps;
-            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}:${String(f).padStart(2, '0')}`;
+            
+            // Match Google Sheets TCSUM: ROUND frames and use QUOTIENT/MOD logic
+            const df = Math.abs(Math.round(frames));
+            const sign = frames < 0 ? '-' : '';
+            
+            const hours = Math.floor(df / (3600 * fps));
+            const rem_h = df % (3600 * fps);
+            const minutes = Math.floor(rem_h / (60 * fps));
+            const rem_m = rem_h % (60 * fps);
+            const seconds = Math.floor(rem_m / fps);
+            const f = rem_m % fps;
+            
+            return sign + String(hours).padStart(2, '0') + ':' + 
+                   String(minutes).padStart(2, '0') + ':' + 
+                   String(seconds).padStart(2, '0') + ':' + 
+                   String(f).padStart(2, '0');
         }
         
         function updateLiveStatus(status, text) {
