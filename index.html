@@ -1457,17 +1457,62 @@
             }
         }
         
+        function detectDurationColumn(row) {
+            if (!row) return null;
+            
+            // List of possible duration column names (ordered by priority)
+            const possibleNames = [
+                'SOURCE_DURATION', 'SOURCE DURATION', 'Source Duration',
+                'DURATION', 'Duration', 'duration',
+                'CLIP_DURATION', 'Clip Duration', 'clip_duration',
+                'LENGTH', 'Length', 'length',
+                'RUNTIME', 'Runtime', 'runtime',
+                'TC_DURATION', 'TC Duration', 'tc_duration'
+            ];
+            
+            // Check each possible name
+            for (const name of possibleNames) {
+                if (row.hasOwnProperty(name)) {
+                    console.log('✅ Detected duration column: "' + name + '" = "' + row[name] + '"');
+                    return name;
+                }
+            }
+            
+            // If no exact match, look for any column containing 'duration'
+            for (const key in row) {
+                if (key.toLowerCase().includes('duration')) {
+                    console.log('✅ Found duration-like column: "' + key + '" = "' + row[key] + '"');
+                    return key;
+                }
+            }
+            
+            console.warn('⚠️ WARNING: No duration column found!');
+            console.warn('Available columns:', Object.keys(row));
+            return null;
+        }
+        
         function processData(rows) {
             const archiveMap = new Map();
             
+            
+            // Detect duration column from first row
+            const durationColumn = detectDurationColumn(rows[0]);
+            console.log('🔍 Using duration column:', durationColumn || 'NONE DETECTED');
+            
             rows.forEach(row => {
-                const archive = (row.Archive || row.archive || '').toString().trim();
+                const archive = (row.Archive || row.archive || row.ARCHIVE || '').toString().trim();
                 if (!archive) return;
                 
                 const id = (row.ID || row.id || '').toString().trim();
                 const invNo = (row.inv_no || row['inv no'] || row['Inv No'] || '').toString().trim();
                 const fileName = (row.FILE_NAME || row['FILE NAME'] || row['File Name'] || '').toString().trim();
-                const duration = (row.SOURCE_DURATION || row['SOURCE DURATION'] || row['Source Duration'] || row.Duration || '00:00:00:00').toString().trim();
+                let duration = '00:00:00:00';
+                if (durationColumn && row[durationColumn]) {
+                    duration = row[durationColumn].toString().trim();
+                } else {
+                    // Fallback to common column names
+                    duration = (row.SOURCE_DURATION || row['SOURCE DURATION'] || row['Source Duration'] || row.Duration || row.duration || '00:00:00:00').toString().trim();
+                }
                 const sourceIn = (row.SOURCE_IN || row['SOURCE IN'] || row['Source In'] || row.SEQUENCE_IN || row['SEQUENCE IN'] || '').toString().trim();
                 const sourceOut = (row.SOURCE_OUT || row['SOURCE OUT'] || row['Source Out'] || row.SEQUENCE_OUT || row['SEQUENCE OUT'] || '').toString().trim();
                 const link = (row.link || row.Link || row.URL || '').toString().trim();
