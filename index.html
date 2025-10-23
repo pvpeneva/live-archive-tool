@@ -706,6 +706,8 @@
                 box-shadow: none;
             }
         }
+    <!-- SheetJS Library for Excel Export -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     </style>
 </head>
 <body>
@@ -935,6 +937,7 @@
                 <button class="btn btn-secondary" onclick="resetFilters()">Reset All</button>
                 <button class="btn btn-success" onclick="copyPlainText()">📋 Copy as Table</button>
                 <button class="btn btn-success" onclick="copyAsTable()">📊 Copy with Summary</button>
+                <button class="btn btn-success" onclick="exportToExcel()">📥 Export to Excel</button>
                 <button class="btn btn-secondary" onclick="window.print()">🖨️ Print</button>
             </div>
         </div>
@@ -2396,6 +2399,156 @@
             }
         }
         
+        
+        function exportToExcel() {
+            const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
+            
+            if (!dataToUse || dataToUse.length === 0) {
+                alert('⚠️ No data to export!\n\nPlease load a sheet first.');
+                return;
+            }
+            
+            try {
+                // Create a new workbook
+                const wb = XLSX.utils.book_new();
+                
+                const videoData = dataToUse.filter(a => a.type === 'video');
+                const stillsData = dataToUse.filter(a => a.type === 'stills');
+                
+                // Summary Sheet
+                const summaryData = [
+                    ['Archive Report Summary'],
+                    [''],
+                    ['Generated:', new Date().toLocaleString()],
+                    ['Sheet Name:', currentSheetName || 'N/A']
+                ];
+                
+                if (currentSheetInfo.production || currentSheetInfo.project) {
+                    summaryData.push(['']);
+                    summaryData.push(['SHEET INFORMATION']);
+                    if (currentSheetInfo.production) summaryData.push(['Production company:', currentSheetInfo.production]);
+                    if (currentSheetInfo.project) summaryData.push(['Film project:', currentSheetInfo.project]);
+                    if (currentSheetInfo.episode || currentSheetInfo.name) {
+                        const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
+                        summaryData.push(['Episode:', episodeName]);
+                    }
+                    if (currentSheetInfo.researcher) summaryData.push(['Researcher:', currentSheetInfo.researcher]);
+                    if (currentSheetInfo.contact) summaryData.push(['Contact:', currentSheetInfo.contact]);
+                }
+                
+                summaryData.push(['']);
+                summaryData.push(['STATISTICS']);
+                summaryData.push(['Video Archives:', videoData.length]);
+                summaryData.push(['Video Clips:', videoData.reduce((sum, a) => sum + a.clips.length, 0)]);
+                summaryData.push(['Total Video Duration:', videoData.reduce((sum, a) => sum + a.totalFrames, 0) > 0 ? framesToTimecode(videoData.reduce((sum, a) => sum + a.totalFrames, 0), 30) : '00:00:00:00']);
+                summaryData.push(['']);
+                summaryData.push(['Stills Archives:', stillsData.length]);
+                summaryData.push(['Total Stills:', stillsData.reduce((sum, a) => sum + a.entries, 0)]);
+                
+                const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+                XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+                
+                // Video Archives Sheet
+                if (videoData.length > 0) {
+                    const videoRows = [['Archive', '#', 'ID', 'Inv No', 'File Name', 'Source In', 'Source Out', 'Duration', 'Link']];
+                    
+                    videoData.forEach(archive => {
+                        // Archive header
+                        videoRows.push([`${archive.name} (${archive.clips.length} clips)`, '', '', '', '', '', '', '', '']);
+                        
+                        // Clips
+                        archive.clips.forEach((clip, i) => {
+                            videoRows.push([
+                                '',
+                                i + 1,
+                                clip.id || '',
+                                clip.invNo || '',
+                                clip.fileName || '',
+                                clip.sourceIn || '',
+                                clip.sourceOut || '',
+                                clip.duration || '00:00:00:00',
+                                clip.link || ''
+                            ]);
+                        });
+                        
+                        // Total row
+                        videoRows.push(['', 'TOTAL', '', '', '', '', '', archive.duration, '']);
+                        videoRows.push(['']); // Empty row between archives
+                    });
+                    
+                    const wsVideo = XLSX.utils.aoa_to_sheet(videoRows);
+                    
+                    // Set column widths
+                    wsVideo['!cols'] = [
+                        { wch: 20 }, // Archive
+                        { wch: 5 },  // #
+                        { wch: 10 }, // ID
+                        { wch: 10 }, // Inv No
+                        { wch: 40 }, // File Name
+                        { wch: 12 }, // Source In
+                        { wch: 12 }, // Source Out
+                        { wch: 12 }, // Duration
+                        { wch: 15 }  // Link
+                    ];
+                    
+                    XLSX.utils.book_append_sheet(wb, wsVideo, 'Video Archives');
+                }
+                
+                // Stills Sheet
+                if (stillsData.length > 0) {
+                    const stillsRows = [['Archive', '#', 'ID', 'Inv No', 'File Name', 'Type', 'Link']];
+                    
+                    stillsData.forEach(archive => {
+                        // Archive header
+                        stillsRows.push([`${archive.name} (${archive.entries} stills)`, '', '', '', '', '', '']);
+                        
+                        // Stills
+                        archive.clips.forEach((clip, i) => {
+                            stillsRows.push([
+                                '',
+                                i + 1,
+                                clip.id || '',
+                                clip.invNo || '',
+                                clip.fileName || '',
+                                'Still Image',
+                                clip.link || ''
+                            ]);
+                        });
+                        
+                        // Total row
+                        stillsRows.push(['', `TOTAL: ${archive.entries} Still Images`, '', '', '', '', '']);
+                        stillsRows.push(['']); // Empty row
+                    });
+                    
+                    const wsStills = XLSX.utils.aoa_to_sheet(stillsRows);
+                    
+                    // Set column widths
+                    wsStills['!cols'] = [
+                        { wch: 20 }, // Archive
+                        { wch: 5 },  // #
+                        { wch: 10 }, // ID
+                        { wch: 10 }, // Inv No
+                        { wch: 50 }, // File Name
+                        { wch: 15 }, // Type
+                        { wch: 15 }  // Link
+                    ];
+                    
+                    XLSX.utils.book_append_sheet(wb, wsStills, 'Stills');
+                }
+                
+                // Create filename
+                const filename = (currentSheetName || 'archive-report') + '_' + new Date().toISOString().split('T')[0] + '.xlsx';
+                
+                // Write the file
+                XLSX.writeFile(wb, filename);
+                
+                alert('✅ Excel file downloaded!\n\n📁 File: ' + filename + '\n\n✓ Multiple sheets (Summary, Video, Stills)\n✓ Formatted and ready to use\n✓ Opens in Excel, Google Sheets, etc.');
+                
+            } catch (error) {
+                console.error('Excel export error:', error);
+                alert('❌ Error creating Excel file: ' + error.message + '\n\nTry using the CSV export instead.');
+            }
+        }
         window.onload = () => loadSavedSheets();
     </script>
 </body>
