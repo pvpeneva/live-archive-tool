@@ -1530,29 +1530,10 @@
             if (!tc || tc === '00:00:00:00') return 0;
             const parts = tc.toString().split(':').map(p => parseInt(p) || 0);
             if (parts.length !== 4) return 0;
-            let [h, m, s, f] = parts;
+            const [h, m, s, f] = parts;
             
-            // NORMALIZE: If frames >= fps, convert to seconds
-            if (f >= fps) {
-                const extraSeconds = Math.floor(f / fps);
-                s += extraSeconds;
-                f = f % fps;
-            }
-            
-            // NORMALIZE: If seconds >= 60, convert to minutes
-            if (s >= 60) {
-                const extraMinutes = Math.floor(s / 60);
-                m += extraMinutes;
-                s = s % 60;
-            }
-            
-            // NORMALIZE: If minutes >= 60, convert to hours
-            if (m >= 60) {
-                const extraHours = Math.floor(m / 60);
-                h += extraHours;
-                m = m % 60;
-            }
-            
+            // Direct conversion WITHOUT normalization
+            // Duration values are already calculated correctly in Google Sheets
             return h * 3600 * fps + m * 60 * fps + s * fps + f;
         }
         
