@@ -706,9 +706,10 @@
                 box-shadow: none;
             }
         }
-    <!-- SheetJS Library for Excel Export -->
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     </style>
+    <!-- SheetJS Library for Excel Export with Fallback -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" 
+            onerror="this.onerror=null; this.src='https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'"></script>
 </head>
 <body>
     <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
@@ -2401,6 +2402,13 @@
         
         
         function exportToExcel() {
+            // Check if XLSX library is loaded
+            if (typeof XLSX === 'undefined') {
+                alert('❌ Excel library not loaded!\n\nПричини:\n• Интернет проблем\n• Блокиран от browser/firewall\n\nРешение: Рефрешни страницата или използвай CSV export.');
+                console.error('XLSX is not defined. Check if SheetJS library loaded.');
+                return;
+            }
+
             const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
             
             if (!dataToUse || dataToUse.length === 0) {
