@@ -707,6 +707,7 @@
             }
         }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
     <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
@@ -756,10 +757,7 @@
                 <div class="live-dot" id="liveDot"></div>
                 <span id="liveStatus">Ready</span>
             </div>
-            <div style="position: absolute; top: 70px; right: 20px; background: rgba(40, 167, 69, 0.9); padding: 8px 15px; border-radius: 20px; font-size: 0.85em; font-weight: 600;">
-            ✅ FIXED - Column N
-        </div>
-        <h1>🎬 Live Archive Report</h1>
+            <h1>🎬 Live Archive Report</h1>
             <p>Real-time Footage Database • Film & Video Archives</p>
             <p id="activeSheetDisplay" style="margin-top: 10px; font-size: 0.9em; opacity: 0.8;"></p>
         </div>
@@ -938,6 +936,7 @@
                 <button class="btn btn-secondary" onclick="resetFilters()">Reset All</button>
                 <button class="btn btn-success" onclick="copyPlainText()">📋 Copy as Table</button>
                 <button class="btn btn-success" onclick="copyAsTable()">📊 Copy with Summary</button>
+                <button class="btn btn-success" onclick="exportToExcel()">📥 Export Excel</button>
                 <button class="btn btn-secondary" onclick="window.print()">🖨️ Print</button>
             </div>
         </div>
@@ -1470,8 +1469,7 @@
                 const id = (row.ID || row.id || '').toString().trim();
                 const invNo = (row.inv_no || row['inv no'] || row['Inv No'] || '').toString().trim();
                 const fileName = (row.FILE_NAME || row['FILE NAME'] || row['File Name'] || '').toString().trim();
-                // CRITICAL FIX: Read ONLY from SOURCE_DURATION (Column N)
-                // Do NOT use row.Duration (Column O) as it's incorrect
+                // FIX: Read ONLY from SOURCE_DURATION (Column N), ignore Column O
                 let duration = '00:00:00:00';
                 if (row.SOURCE_DURATION) {
                     duration = row.SOURCE_DURATION.toString().trim();
@@ -1480,7 +1478,6 @@
                 } else if (row['Source Duration']) {
                     duration = row['Source Duration'].toString().trim();
                 }
-                // If empty or zero, it's a still image
                 if (!duration || duration === '' || duration === '0') {
                     duration = '00:00:00:00';
                 }
@@ -2367,6 +2364,109 @@
             }
         }
         
+
+        function exportToExcel() {
+            if (!filteredData || filteredData.length === 0) {
+                alert('⚠️ No data to export! Please load data first.');
+                return;
+            }
+            
+            if (typeof XLSX === 'undefined') {
+                alert('⚠️ Excel library not loaded. Please refresh the page.');
+                return;
+            }
+            
+            const wb = XLSX.utils.book_new();
+            const dataToExport = filteredData.length > 0 ? filteredData : archiveData;
+            const videoArchives = dataToExport.filter(a => a.type === 'video');
+            const stillsArchives = dataToExport.filter(a => a.type === 'stills');
+            
+            // VIDEO ARCHIVES - each gets its own sheet
+            videoArchives.forEach((archive, idx) => {
+                const wsData = [];
+                
+                // Sheet info on first sheet only
+                if (idx === 0 && currentSheetInfo && currentSheetInfo.production) {
+                    wsData.push(['SHEET INFORMATION']);
+                    wsData.push([]);
+                    if (currentSheetInfo.production) wsData.push(['Production:', currentSheetInfo.production]);
+                    if (currentSheetInfo.project) wsData.push(['Project:', currentSheetInfo.project]);
+                    if (currentSheetInfo.episode || currentSheetInfo.name) {
+                        wsData.push(['Episode:', (currentSheetInfo.episode || '') + ' ' + (currentSheetInfo.name || '')]);
+                    }
+                    if (currentSheetInfo.researcher) wsData.push(['Researcher:', currentSheetInfo.researcher]);
+                    if (currentSheetInfo.contact) wsData.push(['Contact:', currentSheetInfo.contact]);
+                    wsData.push([]);
+                }
+                
+                wsData.push([archive.name + ' (' + archive.clips.length + ' clips)']);
+                wsData.push([]);
+                wsData.push(['#', 'ID', 'Inv No', 'File Name', 'Source In', 'Source Out', 'Duration', 'Link']);
+                
+                archive.clips.forEach((clip, i) => {
+                    wsData.push([
+                        i + 1,
+                        clip.id || '',
+                        clip.invNo || '',
+                        clip.fileName || '',
+                        clip.sourceIn || '',
+                        clip.sourceOut || '',
+                        clip.duration || '00:00:00:00',
+                        clip.link || ''
+                    ]);
+                });
+                
+                wsData.push([]);
+                wsData.push(['TOTAL', '', '', '', '', '', archive.duration, '']);
+                
+                const ws = XLSX.utils.aoa_to_sheet(wsData);
+                ws['!cols'] = [{wch:5},{wch:12},{wch:12},{wch:40},{wch:15},{wch:15},{wch:15},{wch:25}];
+                
+                let sheetName = archive.name.substring(0, 31).replace(/[:\/?*\[\]]/g, '_');
+                XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            });
+            
+            // STILLS ARCHIVES - each gets its own sheet
+            stillsArchives.forEach((archive) => {
+                const wsData = [];
+                wsData.push([archive.name + ' (' + archive.entries + ' stills)']);
+                wsData.push([]);
+                wsData.push(['#', 'ID', 'Inv No', 'File Name', 'Type', 'Link']);
+                
+                archive.clips.forEach((clip, i) => {
+                    wsData.push([
+                        i + 1,
+                        clip.id || '',
+                        clip.invNo || '',
+                        clip.fileName || '',
+                        'Still Image',
+                        clip.link || ''
+                    ]);
+                });
+                
+                wsData.push([]);
+                wsData.push(['TOTAL', archive.entries + ' Still Images', '', '', '', '']);
+                
+                const ws = XLSX.utils.aoa_to_sheet(wsData);
+                ws['!cols'] = [{wch:5},{wch:12},{wch:12},{wch:45},{wch:15},{wch:25}];
+                
+                let sheetName = (archive.name + '_Stills').substring(0, 31).replace(/[:\/?*\[\]]/g, '_');
+                XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            });
+            
+            const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            const sheetName = (currentSheetName || 'Archive_Report').replace(/[^a-zA-Z0-9_-]/g, '_');
+            const filename = sheetName + '_' + timestamp + '.xlsx';
+            
+            XLSX.writeFile(wb, filename);
+            
+            alert('✅ Excel exported!\n\n' +
+                  '📁 File: ' + filename + '\n' +
+                  '📊 Total tabs: ' + (videoArchives.length + stillsArchives.length) + '\n' +
+                  '🎬 Video: ' + videoArchives.length + ' tabs\n' +
+                  '📷 Stills: ' + stillsArchives.length + ' tabs');
+        }
+
         window.onload = () => loadSavedSheets();
     </script>
 </body>
