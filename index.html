@@ -1468,8 +1468,8 @@
                 const invNo = (row.inv_no || row['inv no'] || row['Inv No'] || '').toString().trim();
                 const fileName = (row.FILE_NAME || row['FILE NAME'] || row['File Name'] || '').toString().trim();
                 const duration = (row.SOURCE_DURATION || row['SOURCE DURATION'] || row['Source Duration'] || row.Duration || '00:00:00:00').toString().trim();
-                const sourceIn = (row.SEQUENCE_IN || row['SEQUENCE IN'] || row.SOURCE_IN || row['SOURCE IN'] || row['Source In'] || '').toString().trim();
-                const sourceOut = (row.SEQUENCE_OUT || row['SEQUENCE OUT'] || row.SOURCE_OUT || row['SOURCE OUT'] || row['Source Out'] || '').toString().trim();
+                const sourceIn = (row.SOURCE_IN || row['SOURCE IN'] || row['Source In'] || row.SEQUENCE_IN || row['SEQUENCE IN'] || '').toString().trim();
+                const sourceOut = (row.SOURCE_OUT || row['SOURCE OUT'] || row['Source Out'] || row.SEQUENCE_OUT || row['SEQUENCE OUT'] || '').toString().trim();
                 const link = (row.link || row.Link || row.URL || '').toString().trim();
                 
                 if (!archiveMap.has(archive)) {
