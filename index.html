@@ -1441,6 +1441,7 @@
                     throw new Error('No data returned');
                 }
                 
+                // Handle both old format (array) and new format (object with archiveTotals)
                 processData(data);
                 updateLiveStatus('success', 'Connected');
                 document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
@@ -1502,23 +1503,33 @@
             });
             
             archiveData = Array.from(archiveMap.values()).map(archive => {
-                // FORCE 30fps (no auto-detect)
-                const fps = 30;
+                // Use pre-calculated totals from Apps Script (matches Google Sheets TCSUM)
+                const archiveName = archive.name;
+                const preCalculatedDuration = archiveTotals[archiveName];
                 
-                // Calculate total frames with detected FPS
-                // Match Google Sheets TCSUM: ROUND the final sum
-                const totalFrames = Math.round(
-                    archive.allDurations.reduce((sum, tc) => 
-                        sum + timecodeToFrames(tc, fps), 0
-                    )
-                );
+                let totalFrames = 0;
+                let duration = '00:00:00:00';
+                
+                if (preCalculatedDuration) {
+                    // Use the duration calculated by Apps Script (matches TCSUM exactly)
+                    duration = preCalculatedDuration;
+                    totalFrames = timecodeToFrames(duration, fps);
+                } else {
+                    // Fallback: calculate if not provided by Apps Script
+                    totalFrames = Math.round(
+                        archive.allDurations.reduce((sum, tc) => 
+                            sum + timecodeToFrames(tc, fps), 0
+                        )
+                    );
+                    duration = framesToTimecode(totalFrames, fps);
+                }
                 
                 return {
                     name: archive.name,
                     entries: archive.clips.length,
                     clips: archive.clips,
                     totalFrames: totalFrames,
-                    duration: framesToTimecode(totalFrames, fps),
+                    duration: duration,
                     type: totalFrames === 0 ? 'stills' : 'video',
                     fps: fps
                 };
