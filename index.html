@@ -1437,12 +1437,25 @@
                     throw new Error(data.error);
                 }
                 
-                if (!Array.isArray(data) || data.length === 0) {
-                    throw new Error('No data returned');
+                // Handle new format: {rows: [...], archiveTotals: {...}, fps: 30}
+                // Or old format: just array of rows
+                let dataToProcess;
+                
+                if (data.rows && Array.isArray(data.rows)) {
+                    // New format with archiveTotals
+                    dataToProcess = data;
+                } else if (Array.isArray(data)) {
+                    // Old format - just array
+                    dataToProcess = {rows: data, archiveTotals: {}, fps: 30};
+                } else {
+                    throw new Error('Invalid data format returned');
                 }
                 
-                // Handle both old format (array) and new format (object with archiveTotals)
-                processData(data);
+                if (dataToProcess.rows.length === 0) {
+                    throw new Error('No data rows returned');
+                }
+                
+                processData(dataToProcess);
                 updateLiveStatus('success', 'Connected');
                 document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
                 
