@@ -1437,25 +1437,11 @@
                     throw new Error(data.error);
                 }
                 
-                // Handle new format: {rows: [...], archiveTotals: {...}, fps: 30}
-                // Or old format: just array of rows
-                let dataToProcess;
-                
-                if (data.rows && Array.isArray(data.rows)) {
-                    // New format with archiveTotals
-                    dataToProcess = data;
-                } else if (Array.isArray(data)) {
-                    // Old format - just array
-                    dataToProcess = {rows: data, archiveTotals: {}, fps: 30};
-                } else {
-                    throw new Error('Invalid data format returned');
+                if (!Array.isArray(data) || data.length === 0) {
+                    throw new Error('No data returned');
                 }
                 
-                if (dataToProcess.rows.length === 0) {
-                    throw new Error('No data rows returned');
-                }
-                
-                processData(dataToProcess);
+                processData(data);
                 updateLiveStatus('success', 'Connected');
                 document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
                 
@@ -1481,24 +1467,11 @@
                 if (!archive) return;
                 
                 const id = (row.ID || row.id || '').toString().trim();
-                const invNo = (row['inv no'] || row.inv_no || row['Inv No'] || '').toString().trim();
-                const fileName = (row['FILE NAME'] || row.FILE_NAME || row['File Name'] || '').toString().trim();
-                // FIX: Read from SOURCE DURATION FORMULA (Column N)
-                let duration = '00:00:00:00';
-                if (row['SOURCE DURATION FORMULA']) {
-                    duration = row['SOURCE DURATION FORMULA'].toString().trim();
-                } else if (row.SOURCE_DURATION) {
-                    duration = row.SOURCE_DURATION.toString().trim();
-                } else if (row['SOURCE DURATION']) {
-                    duration = row['SOURCE DURATION'].toString().trim();
-                } else if (row['Source Duration']) {
-                    duration = row['Source Duration'].toString().trim();
-                }
-                if (!duration || duration === '' || duration === '0') {
-                    duration = '00:00:00:00';
-                }
-                const sourceIn = (row['SOURCE IN'] || row.SOURCE_IN || row['Source In'] || row['SEQUENCE IN'] || row.SEQUENCE_IN || '').toString().trim();
-                const sourceOut = (row['SOURCE OUT'] || row.SOURCE_OUT || row['Source Out'] || row['SEQUENCE OUT'] || row.SEQUENCE_OUT || '').toString().trim();
+                const invNo = (row.inv_no || row['inv no'] || row['Inv No'] || '').toString().trim();
+                const fileName = (row.FILE_NAME || row['FILE NAME'] || row['File Name'] || '').toString().trim();
+                const duration = (row['SOURCE DURATION FORMULA'] || row.SOURCE_DURATION || row['SOURCE DURATION'] || row['Source Duration'] || '00:00:00:00').toString().trim();
+                const sourceIn = (row.SOURCE_IN || row['SOURCE IN'] || row['Source In'] || row.SEQUENCE_IN || row['SEQUENCE IN'] || '').toString().trim();
+                const sourceOut = (row.SOURCE_OUT || row['SOURCE OUT'] || row['Source Out'] || row.SEQUENCE_OUT || row['SEQUENCE OUT'] || '').toString().trim();
                 const link = (row.link || row.Link || row.URL || '').toString().trim();
                 
                 if (!archiveMap.has(archive)) {
@@ -1516,33 +1489,20 @@
             });
             
             archiveData = Array.from(archiveMap.values()).map(archive => {
-                // Use pre-calculated totals from Apps Script (matches Google Sheets TCSUM)
-                const archiveName = archive.name;
-                const preCalculatedDuration = archiveTotals[archiveName];
+                // FORCE 30fps (no auto-detect)
+                const fps = 30;
                 
-                let totalFrames = 0;
-                let duration = '00:00:00:00';
-                
-                if (preCalculatedDuration) {
-                    // Use the duration calculated by Apps Script (matches TCSUM exactly)
-                    duration = preCalculatedDuration;
-                    totalFrames = timecodeToFrames(duration, fps);
-                } else {
-                    // Fallback: calculate if not provided by Apps Script
-                    totalFrames = Math.round(
-                        archive.allDurations.reduce((sum, tc) => 
-                            sum + timecodeToFrames(tc, fps), 0
-                        )
-                    );
-                    duration = framesToTimecode(totalFrames, fps);
-                }
+                // Calculate total frames with detected FPS
+                const totalFrames = archive.allDurations.reduce((sum, tc) => 
+                    sum + timecodeToFrames(tc, fps), 0
+                );
                 
                 return {
                     name: archive.name,
                     entries: archive.clips.length,
                     clips: archive.clips,
                     totalFrames: totalFrames,
-                    duration: duration,
+                    duration: framesToTimecode(totalFrames, fps),
                     type: totalFrames === 0 ? 'stills' : 'video',
                     fps: fps
                 };
@@ -1574,29 +1534,19 @@
             if (parts.length !== 4) return 0;
             const [h, m, s, f] = parts;
             
-            // Match Google Sheets TCSUM formula: use ROUND on frames
-            const frames = h * 3600 * fps + m * 60 * fps + s * fps + f;
-            return Math.round(frames);
+            // Direct conversion WITHOUT normalization
+            // Duration values are already calculated correctly in Google Sheets
+            return h * 3600 * fps + m * 60 * fps + s * fps + f;
         }
         
         function framesToTimecode(frames, fps) {
             if (frames === 0) return '00:00:00:00';
-            
-            // Match Google Sheets TCSUM: ROUND frames and use QUOTIENT/MOD logic
-            const df = Math.abs(Math.round(frames));
-            const sign = frames < 0 ? '-' : '';
-            
-            const hours = Math.floor(df / (3600 * fps));
-            const rem_h = df % (3600 * fps);
-            const minutes = Math.floor(rem_h / (60 * fps));
-            const rem_m = rem_h % (60 * fps);
-            const seconds = Math.floor(rem_m / fps);
-            const f = rem_m % fps;
-            
-            return sign + String(hours).padStart(2, '0') + ':' + 
-                   String(minutes).padStart(2, '0') + ':' + 
-                   String(seconds).padStart(2, '0') + ':' + 
-                   String(f).padStart(2, '0');
+            frames = Math.round(frames);
+            const h = Math.floor(frames / (3600 * fps));
+            const m = Math.floor((frames % (3600 * fps)) / (60 * fps));
+            const s = Math.floor((frames % (60 * fps)) / fps);
+            const f = frames % fps;
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}:${String(f).padStart(2, '0')}`;
         }
         
         function updateLiveStatus(status, text) {
@@ -1848,7 +1798,8 @@
             html += '.info-label { font-weight: bold; width: 180px; background: #ffffff; border: 1px solid #000; padding: 6px; }';
             html += '.info-value { background: #ffffff; border: 1px solid #000; padding: 6px; }';
             html += 'a { color: #0066cc; text-decoration: none; }';
-            html += '</style></head><body>';
+            html += '</style>    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head><body>';
             
             // Title
             if (currentSheetName) {
@@ -1989,7 +1940,8 @@
             html += '.summary-label { font-weight: bold; color: #495057; }';
             html += '.summary-value { color: #667eea; font-weight: bold; }';
             html += 'a { color: #667eea; text-decoration: none; }';
-            html += '</style></head><body>';
+            html += '</style>    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head><body>';
             
             if (currentSheetName) {
                 html += '<div class="main-title">📽️ ' + currentSheetName + '</div>';
@@ -2407,12 +2359,12 @@
 
         function exportToExcel() {
             if (!filteredData || filteredData.length === 0) {
-                alert('⚠️ No data to export! Please load data first.');
+                alert('⚠️ No data to export!');
                 return;
             }
             
             if (typeof XLSX === 'undefined') {
-                alert('⚠️ Excel library not loaded. Please refresh the page.');
+                alert('⚠️ Excel library not loaded. Please refresh.');
                 return;
             }
             
@@ -2421,24 +2373,8 @@
             const videoArchives = dataToExport.filter(a => a.type === 'video');
             const stillsArchives = dataToExport.filter(a => a.type === 'stills');
             
-            // VIDEO ARCHIVES - each gets its own sheet
-            videoArchives.forEach((archive, idx) => {
+            videoArchives.forEach((archive) => {
                 const wsData = [];
-                
-                // Sheet info on first sheet only
-                if (idx === 0 && currentSheetInfo && currentSheetInfo.production) {
-                    wsData.push(['SHEET INFORMATION']);
-                    wsData.push([]);
-                    if (currentSheetInfo.production) wsData.push(['Production:', currentSheetInfo.production]);
-                    if (currentSheetInfo.project) wsData.push(['Project:', currentSheetInfo.project]);
-                    if (currentSheetInfo.episode || currentSheetInfo.name) {
-                        wsData.push(['Episode:', (currentSheetInfo.episode || '') + ' ' + (currentSheetInfo.name || '')]);
-                    }
-                    if (currentSheetInfo.researcher) wsData.push(['Researcher:', currentSheetInfo.researcher]);
-                    if (currentSheetInfo.contact) wsData.push(['Contact:', currentSheetInfo.contact]);
-                    wsData.push([]);
-                }
-                
                 wsData.push([archive.name + ' (' + archive.clips.length + ' clips)']);
                 wsData.push([]);
                 wsData.push(['#', 'ID', 'Inv No', 'File Name', 'Source In', 'Source Out', 'Duration', 'Link']);
@@ -2466,7 +2402,6 @@
                 XLSX.utils.book_append_sheet(wb, ws, sheetName);
             });
             
-            // STILLS ARCHIVES - each gets its own sheet
             stillsArchives.forEach((archive) => {
                 const wsData = [];
                 wsData.push([archive.name + ' (' + archive.entries + ' stills)']);
@@ -2500,11 +2435,7 @@
             
             XLSX.writeFile(wb, filename);
             
-            alert('✅ Excel exported!\n\n' +
-                  '📁 File: ' + filename + '\n' +
-                  '📊 Total tabs: ' + (videoArchives.length + stillsArchives.length) + '\n' +
-                  '🎬 Video: ' + videoArchives.length + ' tabs\n' +
-                  '📷 Stills: ' + stillsArchives.length + ' tabs');
+            alert('✅ Excel exported!\n\nFile: ' + filename + '\nTotal tabs: ' + (videoArchives.length + stillsArchives.length));
         }
 
         window.onload = () => loadSavedSheets();
