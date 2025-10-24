@@ -1495,28 +1495,56 @@
             return null;
         }
         
+        
+        // NEW FUNCTION: Read duration from specific Sheets cell/range
+        function getDurationFromSheets(archiveName) {
+            // Check if we have raw duration data from Sheets
+            if (window.rawSheetData && window.rawSheetData[archiveName]) {
+                return window.rawSheetData[archiveName];
+            }
+            return null;
+        }
+        
         function processData(rows) {
             const archiveMap = new Map();
             
+            // Store raw data for reference
+            window.rawSheetData = {};
             
             // Detect duration column from first row
             const durationColumn = detectDurationColumn(rows[0]);
             console.log('🔍 Using duration column:', durationColumn || 'NONE DETECTED');
             
-            rows.forEach(row => {
+            rows.forEach((row, rowIndex) => {
                 const archive = (row.Archive || row.archive || row.ARCHIVE || '').toString().trim();
                 if (!archive) return;
                 
                 const id = (row.ID || row.id || '').toString().trim();
-                const invNo = (row.inv_no || row['inv no'] || row['Inv No'] || '').toString().trim();
-                const fileName = (row.FILE_NAME || row['FILE NAME'] || row['File Name'] || '').toString().trim();
+                const invNo = (row.inv_no || row['inv no'] || row['Inv No'] || row.INV_NO || '').toString().trim();
+                const fileName = (row.FILE_NAME || row['FILE NAME'] || row['File Name'] || row.filename || '').toString().trim();
+                
+                // READ DURATION DIRECTLY FROM SHEETS - NO PROCESSING
                 let duration = '00:00:00:00';
+                let rawDuration = '';
+                
                 if (durationColumn && row[durationColumn]) {
-                    duration = row[durationColumn].toString().trim();
+                    // Get RAW value from Sheets
+                    rawDuration = row[durationColumn].toString().trim();
+                    duration = rawDuration;
                 } else {
-                    // Fallback to common column names
-                    duration = (row.SOURCE_DURATION || row['SOURCE DURATION'] || row['Source Duration'] || row.Duration || row.duration || '00:00:00:00').toString().trim();
+                    // Fallback
+                    rawDuration = (row.SOURCE_DURATION || row['SOURCE DURATION'] || row['Source Duration'] || row.Duration || row.duration || '00:00:00:00').toString().trim();
+                    duration = rawDuration;
                 }
+                
+                // Check if there's a TCSUM or TOTAL column
+                const tcsumValue = row.TCSUM || row.tcsum || row.TC_SUM || row['TC SUM'] || row.TOTAL || row.Total;
+                if (tcsumValue) {
+                    console.log(`⚡ Found TCSUM for ${archive}:`, tcsumValue);
+                    duration = tcsumValue.toString().trim();
+                    rawDuration = duration;
+                }
+                
                 const sourceIn = (row.SOURCE_IN || row['SOURCE IN'] || row['Source In'] || row.SEQUENCE_IN || row['SEQUENCE IN'] || '').toString().trim();
                 const sourceOut = (row.SOURCE_OUT || row['SOURCE OUT'] || row['Source Out'] || row.SEQUENCE_OUT || row['SEQUENCE OUT'] || '').toString().trim();
                 const link = (row.link || row.Link || row.URL || '').toString().trim();
@@ -1525,7 +1553,8 @@
                     archiveMap.set(archive, {
                         name: archive,
                         clips: [],
-                        allDurations: []
+                        allDurations: [],
+                        rawDurations: []
                     });
                 }
                 
@@ -1533,26 +1562,53 @@
                     id, invNo, fileName, duration, sourceIn, sourceOut, link
                 });
                 archiveMap.get(archive).allDurations.push(duration);
+                archiveMap.get(archive).rawDurations.push(rawDuration);
             });
             
             archiveData = Array.from(archiveMap.values()).map(archive => {
-                // FORCE 30fps (no auto-detect)
-                const fps = 30;
+                // CRITICAL CHANGE: Use RAW duration from Sheets, don't recalculate!
                 
-                // Calculate total frames with detected FPS
-                const totalFrames = archive.allDurations.reduce((sum, tc) => 
-                    sum + timecodeToFrames(tc, fps), 0
+                // Check if any clip has a pre-calculated total (TCSUM)
+                const totalRow = archive.clips.find(c => 
+                    c.fileName && (c.fileName.toUpperCase().includes('TOTAL') || 
+                                   c.fileName.toUpperCase().includes('TCSUM') ||
+                                   c.id.toUpperCase().includes('TOTAL'))
                 );
+                
+                let displayDuration = '00:00:00:00';
+                let totalFrames = 0;
+                
+                if (totalRow) {
+                    // Use the TOTAL row duration directly from Sheets
+                    displayDuration = totalRow.duration;
+                    totalFrames = timecodeToFrames(displayDuration, 30);
+                    console.log(`✅ Using TOTAL row for ${archive.name}: ${displayDuration}`);
+                } else {
+                    // Calculate from individual clips
+                    totalFrames = archive.allDurations.reduce((sum, tc) => 
+                        sum + timecodeToFrames(tc, 30), 0
+                    );
+                    displayDuration = framesToTimecode(totalFrames, 30);
+                    console.log(`🧮 Calculated total for ${archive.name}: ${displayDuration} (from ${archive.clips.length} clips)`);
+                }
+                
+                // Store raw data
+                window.rawSheetData[archive.name] = displayDuration;
                 
                 return {
                     name: archive.name,
                     entries: archive.clips.length,
                     clips: archive.clips,
                     totalFrames: totalFrames,
-                    duration: framesToTimecode(totalFrames, fps),
+                    duration: displayDuration,
                     type: totalFrames === 0 ? 'stills' : 'video',
-                    fps: fps
+                    fps: 30
                 };
+            });
+            
+            console.log('📊 Archive totals:');
+            archiveData.forEach(a => {
+                console.log(`  ${a.name}: ${a.duration} (${a.clips.length} clips)`);
             });
             
             populateArchiveFilter();
@@ -2423,38 +2479,78 @@
                 const videoData = dataToUse.filter(a => a.type === 'video');
                 const stillsData = dataToUse.filter(a => a.type === 'stills');
                 
-                // Summary Sheet
-                const summaryData = [
-                    ['Archive Report Summary'],
-                    [''],
-                    ['Generated:', new Date().toLocaleString()],
-                    ['Sheet Name:', currentSheetName || 'N/A']
-                ];
+                // EXPLICIT TEST - Force 2-column structure
+                const summaryData = [];
                 
-                if (currentSheetInfo.production || currentSheetInfo.project) {
-                    summaryData.push(['']);
-                    summaryData.push(['SHEET INFORMATION']);
-                    if (currentSheetInfo.production) summaryData.push(['Production company:', currentSheetInfo.production]);
-                    if (currentSheetInfo.project) summaryData.push(['Film project:', currentSheetInfo.project]);
-                    if (currentSheetInfo.episode || currentSheetInfo.name) {
-                        const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
-                        summaryData.push(['Episode:', episodeName]);
+                // Row 1: Title (merged feel)
+                summaryData.push(['ARCHIVE REPORT', '']);
+                summaryData.push(['', '']); // Empty row
+                
+                // Row 3-4: Generated info
+                const generatedDate = new Date().toLocaleString('bg-BG', {
+                    year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit'
+                });
+                summaryData.push(['Generated:', generatedDate]);
+                summaryData.push(['Sheet Name:', currentSheetName || 'N/A']);
+                summaryData.push(['', '']); // Empty
+                
+                // Sheet Information section
+                if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.episode) {
+                    summaryData.push(['SHEET INFORMATION', '']);
+                    if (currentSheetInfo.production) {
+                        summaryData.push(['Production company:', currentSheetInfo.production]);
                     }
-                    if (currentSheetInfo.researcher) summaryData.push(['Researcher:', currentSheetInfo.researcher]);
-                    if (currentSheetInfo.contact) summaryData.push(['Contact:', currentSheetInfo.contact]);
+                    if (currentSheetInfo.project) {
+                        summaryData.push(['Film project:', currentSheetInfo.project]);
+                    }
+                    if (currentSheetInfo.episode || currentSheetInfo.name) {
+                        const episodeName = (currentSheetInfo.episode || '') + ' ' + (currentSheetInfo.name || '');
+                        summaryData.push(['Episode:', episodeName.trim()]);
+                    }
+                    if (currentSheetInfo.researcher) {
+                        summaryData.push(['Researcher:', currentSheetInfo.researcher]);
+                    }
+                    if (currentSheetInfo.contact) {
+                        summaryData.push(['Contact:', currentSheetInfo.contact]);
+                    }
+                    summaryData.push(['', '']); // Empty
                 }
                 
-                summaryData.push(['']);
-                summaryData.push(['STATISTICS']);
-                summaryData.push(['Video Archives:', videoData.length]);
-                summaryData.push(['Video Clips:', videoData.reduce((sum, a) => sum + a.clips.length, 0)]);
-                summaryData.push(['Total Video Duration:', videoData.reduce((sum, a) => sum + a.totalFrames, 0) > 0 ? framesToTimecode(videoData.reduce((sum, a) => sum + a.totalFrames, 0), 30) : '00:00:00:00']);
-                summaryData.push(['']);
-                summaryData.push(['Stills Archives:', stillsData.length]);
-                summaryData.push(['Total Stills:', stillsData.reduce((sum, a) => sum + a.entries, 0)]);
+                // Statistics section
+                summaryData.push(['STATISTICS', '']);
+                summaryData.push(['Video Archives:', String(videoData.length)]);
+                summaryData.push(['Video Clips:', String(videoData.reduce((sum, a) => sum + a.clips.length, 0))]);
                 
+                const totalFrames = videoData.reduce((sum, a) => sum + a.totalFrames, 0);
+                const durationStr = totalFrames > 0 ? framesToTimecode(totalFrames, 30) : '00:00:00:00';
+                summaryData.push(['Total Video Duration:', durationStr]);
+                
+                summaryData.push(['', '']); // Empty
+                summaryData.push(['Stills Archives:', String(stillsData.length)]);
+                summaryData.push(['Total Stills:', String(stillsData.reduce((sum, a) => sum + a.entries, 0))]);
+                
+                // DEBUG: Verify structure
+                console.log('🔍 SUMMARY DATA TEST:');
+                console.log('Total rows:', summaryData.length);
+                console.log('First row:', summaryData[0]);
+                console.log('Generated row:', summaryData[2]);
+                
+                
+                
+                
+                // Create worksheet from summaryData
                 const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
-                XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+                
+                // Format Summary sheet
+                wsSummary['!cols'] = [
+                    { wch: 25 },  // Column A - Labels
+                    { wch: 40 }   // Column B - Values
+                ];
+                
+                // Add Summary sheet with project name
+                XLSX.utils.book_append_sheet(wb, wsSummary, shortProjectName + ' - Summary');
+                
                 
                 // Video Archives Sheet
                 if (videoData.length > 0) {
@@ -2499,7 +2595,7 @@
                         { wch: 15 }  // Link
                     ];
                     
-                    XLSX.utils.book_append_sheet(wb, wsVideo, 'Video Archives');
+                    XLSX.utils.book_append_sheet(wb, wsVideo, shortProjectName + ' - Video');
                 }
                 
                 // Stills Sheet
@@ -2541,7 +2637,7 @@
                         { wch: 15 }  // Link
                     ];
                     
-                    XLSX.utils.book_append_sheet(wb, wsStills, 'Stills');
+                    XLSX.utils.book_append_sheet(wb, wsStills, shortProjectName + ' - Stills');
                 }
                 
                 // Create filename
