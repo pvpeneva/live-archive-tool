@@ -1537,13 +1537,8 @@
                     duration = rawDuration;
                 }
                 
-                // Check if there's a TCSUM or TOTAL column
+                // Detect TCSUM column value (will be stored for each archive)
                 const tcsumValue = row.TCSUM || row.tcsum || row.TC_SUM || row['TC SUM'] || row.TOTAL || row.Total || row['SOURCE DURATION - FORMULA'];
-                if (tcsumValue) {
-                    console.log(`⚡ Found TCSUM for ${archive}:`, tcsumValue);
-                    duration = tcsumValue.toString().trim();
-                    rawDuration = duration;
-                }
                 
                 const sourceIn = (row.SOURCE_IN || row['SOURCE IN'] || row['Source In'] || row.SEQUENCE_IN || row['SEQUENCE IN'] || '').toString().trim();
                 const sourceOut = (row.SOURCE_OUT || row['SOURCE OUT'] || row['Source Out'] || row.SEQUENCE_OUT || row['SEQUENCE OUT'] || '').toString().trim();
@@ -1555,15 +1550,15 @@
                         clips: [],
                         allDurations: [],
                         rawDurations: [],
-                        tcsumValue: null  // Store TCSUM if found
+                        lastTcsumValue: null  // Will store the LAST TCSUM value found
                     });
                 }
                 
-                // If this row has a TCSUM value, store it for the archive
+                // ALWAYS update TCSUM if we find a non-zero value (keeps updating to the LAST one)
                 if (tcsumValue && tcsumValue.toString().trim() !== '' && tcsumValue.toString().trim() !== '00:00:00:00') {
                     const tcsumStr = tcsumValue.toString().trim();
-                    archiveMap.get(archive).tcsumValue = tcsumStr;
-                    console.log(`✅ Stored TCSUM for ${archive}: ${tcsumStr}`);
+                    archiveMap.get(archive).lastTcsumValue = tcsumStr;
+                    console.log(`📊 Updated TCSUM for ${archive}: ${tcsumStr} (row ${rowIndex + 1})`);
                 }
                 
                 archiveMap.get(archive).clips.push({
@@ -1575,15 +1570,15 @@
             
                         
             archiveData = Array.from(archiveMap.values()).map(archive => {
-                // PRIORITY 1: Use TCSUM value if available from the sheet
+                // PRIORITY 1: Use LAST TCSUM value if available from the sheet
                 let displayDuration = '00:00:00:00';
                 let totalFrames = 0;
                 
-                if (archive.tcsumValue && archive.tcsumValue !== '00:00:00:00') {
+                if (archive.lastTcsumValue && archive.lastTcsumValue !== '00:00:00:00') {
                     // TCSUM value found - use it directly!
-                    displayDuration = archive.tcsumValue;
+                    displayDuration = archive.lastTcsumValue;
                     totalFrames = timecodeToFrames(displayDuration, 30);
-                    console.log(`✅ Using TCSUM for ${archive.name}: ${displayDuration}`);
+                    console.log(`✅ Using TCSUM column value for ${archive.name}: ${displayDuration}`);
                 } else {
                     // PRIORITY 2: Check if any clip has a pre-calculated total (TOTAL row)
                     const totalRow = archive.clips.find(c => 
