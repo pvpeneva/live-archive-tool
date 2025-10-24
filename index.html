@@ -1495,6 +1495,62 @@
             return null;
         }
         
+        
+        // ⭐ TCSUM Function - same as Google Sheets Named Function
+        function TCSUM(timecodeArray, fpsValue) {
+            let fps = 30;
+            if (fpsValue && fpsValue !== '') {
+                const fpsStr = fpsValue.toString().replace(',', '.').replace(';', '.');
+                const fpsMatch = fpsStr.match(/\d+[.,]?\d*/);
+                if (fpsMatch) {
+                    const fpsParsed = parseFloat(fpsMatch[0]);
+                    if (!isNaN(fpsParsed)) fps = fpsParsed;
+                }
+            }
+            
+            let totalFrames = 0;
+            
+            for (let i = 0; i < timecodeArray.length; i++) {
+                const tc = timecodeArray[i];
+                if (!tc || tc === '' || tc === null || tc === undefined) continue;
+                
+                const txt = tc.toString().trim();
+                if (txt === '') continue;
+                
+                let sign = 1;
+                if (txt.match(/^-|\(/)) sign = -1;
+                
+                const clean = txt.replace(/[^0-9:]/g, '');
+                if (clean === '') continue;
+                
+                const parts = clean.split(':');
+                const h = parseInt(parts[0] || 0) || 0;
+                const m = parseInt(parts[1] || 0) || 0;
+                const s = parseInt(parts[2] || 0) || 0;
+                const f = parseInt(parts[3] || 0) || 0;
+                
+                const frames = sign * (h * 3600 * fps + m * 60 * fps + s * fps + f);
+                totalFrames += frames;
+            }
+            
+            totalFrames = Math.round(totalFrames);
+            let signOut = '';
+            if (totalFrames < 0) {
+                signOut = '-';
+                totalFrames = Math.abs(totalFrames);
+            }
+            
+            const hours = Math.floor(totalFrames / (3600 * fps));
+            const remH = totalFrames % (3600 * fps);
+            const minutes = Math.floor(remH / (60 * fps));
+            const remM = remH % (60 * fps);
+            const seconds = Math.floor(remM / fps);
+            const frames = remM % fps;
+            
+            const pad = (num) => num < 10 ? '0' + num : '' + num;
+            return signOut + pad(hours) + ':' + pad(minutes) + ':' + pad(seconds) + ':' + pad(frames);
+        }
+        
         function processData(rows) {
             const archiveMap = new Map();
             
@@ -1536,22 +1592,20 @@
             });
             
             archiveData = Array.from(archiveMap.values()).map(archive => {
-                // FORCE 30fps (no auto-detect)
-                const fps = 30;
+                // Use TCSUM to calculate total duration (same as Google Sheets)
+                const totalDuration = TCSUM(archive.allDurations, 30);
                 
-                // Calculate total frames with detected FPS
-                const totalFrames = archive.allDurations.reduce((sum, tc) => 
-                    sum + timecodeToFrames(tc, fps), 0
-                );
+                // Still calculate totalFrames for sorting
+                const totalFrames = timecodeToFrames(totalDuration, 30);
                 
                 return {
                     name: archive.name,
                     entries: archive.clips.length,
                     clips: archive.clips,
                     totalFrames: totalFrames,
-                    duration: framesToTimecode(totalFrames, fps),
-                    type: totalFrames === 0 ? 'stills' : 'video',
-                    fps: fps
+                    duration: totalDuration,  // Using TCSUM result
+                    type: totalDuration === '00:00:00:00' ? 'stills' : 'video',
+                    fps: 30
                 };
             });
             
@@ -1783,38 +1837,13 @@
             const videoClips = videoData.reduce((sum, a) => sum + a.clips.length, 0);
             const stillsCount = stillsData.reduce((sum, a) => sum + a.entries, 0);
             
-            // Calculate total duration considering different FPS for each archive
-            let totalFrames = 0;
-            let dominantFps = 30;
-            
-            if (videoData.length > 0) {
-                // Find the FPS used by most archives
-                const fpsCount = {};
-                videoData.forEach(archive => {
-                    const fps = archive.fps || 30;
-                    fpsCount[fps] = (fpsCount[fps] || 0) + 1;
-                });
-                dominantFps = Object.keys(fpsCount).reduce((a, b) => 
-                    fpsCount[a] > fpsCount[b] ? a : b
-                );
-                dominantFps = parseInt(dominantFps);
-                
-                // Sum all frames (convert to dominant FPS if needed)
-                videoData.forEach(archive => {
-                    const archiveFps = archive.fps || 30;
-                    if (archiveFps === dominantFps) {
-                        totalFrames += archive.totalFrames;
-                    } else {
-                        // Convert frames to dominant FPS
-                        const seconds = archive.totalFrames / archiveFps;
-                        totalFrames += Math.round(seconds * dominantFps);
-                    }
-                });
-            }
+            // ⭐ Use TCSUM to calculate total video duration (same as Google Sheets)
+            const allDurations = videoData.flatMap(a => a.clips.map(clip => clip.duration));
+            const totalDuration = TCSUM(allDurations, 30);
             
             document.getElementById('videoClips').textContent = videoClips;
             document.getElementById('videoArchives').textContent = videoData.length;
-            document.getElementById('videoDuration').textContent = framesToTimecode(totalFrames, dominantFps);
+            document.getElementById('videoDuration').textContent = totalDuration;
             document.getElementById('stillsCount').textContent = stillsCount;
             document.getElementById('stillsArchives').textContent = stillsData.length;
         }
@@ -2561,5 +2590,3 @@
     </script>
 </body>
 </html>
-
- 
