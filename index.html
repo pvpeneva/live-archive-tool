@@ -1873,7 +1873,7 @@
             html += '.info-label { font-weight: bold; width: 180px; background: #ffffff; border: 1px solid #000; padding: 6px; }';
             html += '.info-value { background: #ffffff; border: 1px solid #000; padding: 6px; }';
             html += 'a { color: #0066cc; text-decoration: none; }';
-            html += '</style></head><body>';
+            html += '<\/style><\/head><body>';
             
             // Title
             if (currentSheetName) {
@@ -1974,7 +1974,7 @@
                 });
             }
             
-            html += '</body></html>';
+            html += '<\/body><\/html>';
             
             copyFormattedContent(html);
         }
@@ -2014,7 +2014,7 @@
             html += '.summary-label { font-weight: bold; color: #495057; }';
             html += '.summary-value { color: #667eea; font-weight: bold; }';
             html += 'a { color: #667eea; text-decoration: none; }';
-            html += '</style></head><body>';
+            html += '<\/style><\/head><body>';
             
             if (currentSheetName) {
                 html += '<div class="main-title">📽️ ' + currentSheetName + '</div>';
@@ -2119,7 +2119,7 @@
                 });
             }
             
-            html += '</body></html>';
+            html += '<\/body><\/html>';
             
             copyFormattedContent(html);
         }
@@ -2374,17 +2374,35 @@
         
         // Missing copyFormattedContent function - this was causing copy buttons to fail
         function copyFormattedContent(html) {
-            // Try modern clipboard API first
+            // Try modern clipboard API first with both HTML and plain text
             if (navigator.clipboard && navigator.clipboard.write) {
-                const blob = new Blob([html], { type: 'text/html' });
-                const clipboardItem = new ClipboardItem({ 'text/html': blob });
-                
-                navigator.clipboard.write([clipboardItem]).then(() => {
-                    alert('✅ Table copied successfully!\n\n📋 Format: Rich HTML Table\n✓ Paste in Word/Excel\n✓ Paste in Thunderbird\n✓ Keeps formatting!');
-                }).catch(err => {
-                    // Fallback to textarea method
+                try {
+                    // Create plain text version from HTML
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = html;
+                    const plainText = tempDiv.innerText || tempDiv.textContent;
+
+                    // Create blobs for both formats
+                    const htmlBlob = new Blob([html], { type: 'text/html' });
+                    const textBlob = new Blob([plainText], { type: 'text/plain' });
+
+                    // Create ClipboardItem with both formats for better compatibility
+                    const clipboardItem = new ClipboardItem({
+                        'text/html': htmlBlob,
+                        'text/plain': textBlob
+                    });
+
+                    navigator.clipboard.write([clipboardItem]).then(() => {
+                        alert('✅ Table copied successfully!\n\n📋 Format: Rich HTML Table\n✓ Paste in Word/Excel\n✓ Paste in Thunderbird\n✓ Paste in Notion\n✓ Keeps formatting!');
+                    }).catch(err => {
+                        console.error('Clipboard API failed:', err);
+                        // Fallback to textarea method
+                        fallbackCopyHTML(html);
+                    });
+                } catch (err) {
+                    console.error('Error creating clipboard item:', err);
                     fallbackCopyHTML(html);
-                });
+                }
             } else {
                 // Old browser fallback
                 fallbackCopyHTML(html);
