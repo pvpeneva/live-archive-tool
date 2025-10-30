@@ -707,9 +707,8 @@
             }
         }
     </style>
-    <!-- SheetJS Library for Excel Export with Fallback -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" 
-            onerror="this.onerror=null; this.src='https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'"></script>
+    <!-- SheetJS Library for Excel Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
     <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
@@ -782,7 +781,15 @@
                 <p>Delete any existing code and paste this:</p>
                 <div class="code-block">function doGet(e) {
   try {
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('DUCKWITZ EDL');
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheetName = e.parameter.sheet || null;
+    var sheet;
+    
+    if (sheetName) {
+      sheet = ss.getSheetByName(sheetName);
+    } else {
+      sheet = ss.getSheets()[0];
+    }
     
     if (!sheet) {
       return ContentService
@@ -814,7 +821,6 @@
       .setMimeType(ContentService.MimeType.JSON);
   }
 }</div>
-                <p style="margin-top: 10px;"><strong>Important:</strong> Replace <code>'DUCKWITZ EDL'</code> with your actual sheet tab name if different!</p>
             </div>
             
             <div class="setup-step">
@@ -827,18 +833,6 @@
                     <li><strong>Who has access:</strong> Anyone</li>
                     <li>Click <strong>"Deploy"</strong> and authorize</li>
                     <li><strong>Copy the Web App URL</strong> (ends with /exec)</li>
-                </ol>
-            </div>
-            
-            <div class="setup-step">
-                <h4>Step 4: Save to Sidebar</h4>
-                <p>After getting your URL:</p>
-                <ol style="line-height: 2;">
-                    <li>Click the <strong>☰ menu</strong> (top left)</li>
-                    <li>Click <strong>"+ Add New Sheet"</strong></li>
-                    <li>Enter a name and paste your URL</li>
-                    <li>Click <strong>"Save"</strong></li>
-                    <li>Your sheet will appear in the sidebar - click it to load!</li>
                 </ol>
             </div>
         </div>
@@ -936,9 +930,9 @@
             <div class="button-group">
                 <button class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
                 <button class="btn btn-secondary" onclick="resetFilters()">Reset All</button>
-                <button class="btn btn-success" onclick="copyPlainText()">📋 Copy as Table</button>
-                <button class="btn btn-success" onclick="copyAsTable()">📊 Copy with Summary</button>
-                <button class="btn btn-success" onclick="exportToExcel()">📥 Export to Excel</button>
+                <button class="btn btn-success" onclick="copyPlainText()">📋 Copy Plain Table</button>
+                <button class="btn btn-success" onclick="copyAsTable()">📊 Copy Rich Table</button>
+                <button class="btn btn-success" onclick="exportToExcel()">📥 Export Excel</button>
                 <button class="btn btn-secondary" onclick="window.print()">🖨️ Print</button>
             </div>
         </div>
@@ -962,21 +956,74 @@
         let currentSheetName = '';
         let currentSheetInfo = {};
         
-        // Load saved sheets on startup - WITH CONFIG FILE SUPPORT
+        // ⭐⭐⭐ FIXED TCSUM FUNCTION - MATCHES GOOGLE SHEETS EXACTLY ⭐⭐⭐
+        function TCSUM(timecodeArray, fpsValue) {
+            let fps = 30;
+            if (fpsValue && fpsValue !== '') {
+                const fpsStr = fpsValue.toString().replace(',', '.').replace(';', '.');
+                const fpsMatch = fpsStr.match(/\d+[.,]?\d*/);
+                if (fpsMatch) {
+                    const fpsParsed = parseFloat(fpsMatch[0]);
+                    if (!isNaN(fpsParsed)) fps = fpsParsed;
+                }
+            }
+            
+            let totalFrames = 0;
+            
+            for (let i = 0; i < timecodeArray.length; i++) {
+                const tc = timecodeArray[i];
+                if (!tc || tc === '' || tc === null || tc === undefined) continue;
+                
+                const txt = tc.toString().trim();
+                if (txt === '') continue;
+                
+                let sign = 1;
+                if (txt.match(/^-|\(/)) sign = -1;
+                
+                const clean = txt.replace(/[^0-9:]/g, '');
+                if (clean === '') continue;
+                
+                const parts = clean.split(':');
+                const h = parseInt(parts[0] || 0) || 0;
+                const m = parseInt(parts[1] || 0) || 0;
+                const s = parseInt(parts[2] || 0) || 0;
+                const f = parseInt(parts[3] || 0) || 0;
+                
+                // EXACT calculation - integer arithmetic only
+                const frames = sign * (h * 3600 * fps + m * 60 * fps + s * fps + f);
+                totalFrames += frames;
+            }
+            
+            // Round to eliminate floating point errors
+            totalFrames = Math.round(totalFrames);
+            
+            let signOut = '';
+            if (totalFrames < 0) {
+                signOut = '-';
+                totalFrames = Math.abs(totalFrames);
+            }
+            
+            // Convert back to timecode - integer arithmetic
+            const hours = Math.floor(totalFrames / (3600 * fps));
+            const remH = totalFrames % (3600 * fps);
+            const minutes = Math.floor(remH / (60 * fps));
+            const remM = remH % (60 * fps);
+            const seconds = Math.floor(remM / fps);
+            const frames = Math.round(remM - seconds * fps); // FIX: Use Math.round here
+            
+            const pad = (num) => num < 10 ? '0' + num : '' + num;
+            return signOut + pad(hours) + ':' + pad(minutes) + ':' + pad(seconds) + ':' + pad(frames);
+        }
+        
         async function loadSavedSheets() {
             const saved = localStorage.getItem('savedSheets');
             savedSheets = saved ? JSON.parse(saved) : [];
             
-            // FIRST: Try to load from config file (for all users)
             try {
-                console.log('Loading sheets from config file...');
                 const response = await fetch('sheets-config.json?t=' + Date.now());
                 if (response.ok) {
                     const config = await response.json();
                     if (config.sheets && Array.isArray(config.sheets)) {
-                        console.log('Found ' + config.sheets.length + ' sheets in config');
-                        
-                        // Merge config sheets with saved sheets
                         config.sheets.forEach(configSheet => {
                             if (!savedSheets.find(s => s.id === configSheet.id)) {
                                 savedSheets.push({
@@ -984,37 +1031,23 @@
                                     addedAt: new Date().toISOString(),
                                     fromConfig: true
                                 });
-                            } else {
-                                // Update existing sheet from config
-                                const index = savedSheets.findIndex(s => s.id === configSheet.id);
-                                savedSheets[index] = {
-                                    ...configSheet,
-                                    addedAt: savedSheets[index].addedAt,
-                                    fromConfig: true
-                                };
                             }
                         });
-                        
                         localStorage.setItem('savedSheets', JSON.stringify(savedSheets));
-                        console.log('Config loaded successfully!');
                     }
                 }
             } catch (e) {
-                console.log('No config file or error loading:', e.message);
+                console.log('No config file found');
             }
             
-            // SECOND: Check for shared sheet in URL (for individual shares)
-            let sharedData = null;
-            
-            // Method 1: Check query parameter ?s=...
+            // Check for share link
             const urlParams = new URLSearchParams(window.location.search);
             const shareParam = urlParams.get('s');
             
             if (shareParam) {
                 try {
-                    console.log('Found share parameter, decoding...');
                     const decoded = JSON.parse(decodeURIComponent(escape(atob(shareParam))));
-                    sharedData = {
+                    const sharedData = {
                         id: decoded.i,
                         episode: decoded.e || '',
                         name: decoded.n,
@@ -1024,95 +1057,36 @@
                         researcher: decoded.r || '',
                         contact: decoded.c || ''
                     };
-                    console.log('Decoded data:', sharedData);
-                } catch (e) {
-                    console.error('Error decoding share parameter:', e);
-                    alert('⚠️ Invalid share link. Please ask for a new link.\n\nError: ' + e.message);
-                }
-            }
-            
-            // Method 2: Check hash #share=...
-            if (!sharedData) {
-                const hash = window.location.hash;
-                if (hash && hash.startsWith('#share=')) {
-                    try {
-                        console.log('Found hash share, decoding...');
-                        const encoded = hash.substring(7);
-                        const decoded = JSON.parse(decodeURIComponent(atob(encoded)));
-                        sharedData = {
-                            id: decoded.id || decoded.i,
-                            episode: decoded.episode || decoded.e || '',
-                            name: decoded.name || decoded.n,
-                            url: decoded.url || decoded.u,
-                            production: decoded.production || decoded.p || '',
-                            project: decoded.project || decoded.j || '',
-                            researcher: decoded.researcher || decoded.r || '',
-                            contact: decoded.contact || decoded.c || ''
-                        };
-                        console.log('Decoded hash data:', sharedData);
-                    } catch (e) {
-                        console.error('Error decoding hash:', e);
+                    
+                    if (!savedSheets.find(s => s.id === sharedData.id)) {
+                        savedSheets.push({
+                            ...sharedData,
+                            addedAt: new Date().toISOString()
+                        });
+                        localStorage.setItem('savedSheets', JSON.stringify(savedSheets));
+                        
+                        const cleanUrl = window.location.origin + window.location.pathname;
+                        history.replaceState(null, null, cleanUrl);
+                        
+                        const displayName = sharedData.episode ? sharedData.episode + '_' + sharedData.name : sharedData.name;
+                        alert('✅ Sheet imported!\n\n📋 ' + displayName);
                     }
-                }
-            }
-            
-            // If we found shared data, import it
-            if (sharedData && sharedData.id && sharedData.name && sharedData.url) {
-                console.log('Importing shared sheet...');
-                
-                // Check if sheet already exists
-                if (!savedSheets.find(s => s.id === sharedData.id)) {
-                    const newSheet = {
-                        id: sharedData.id,
-                        episode: sharedData.episode,
-                        name: sharedData.name,
-                        url: sharedData.url,
-                        production: sharedData.production,
-                        project: sharedData.project,
-                        researcher: sharedData.researcher,
-                        contact: sharedData.contact,
-                        addedAt: new Date().toISOString()
-                    };
                     
-                    savedSheets.push(newSheet);
-                    localStorage.setItem('savedSheets', JSON.stringify(savedSheets));
-                    
-                    console.log('Sheet imported successfully!');
-                    
-                    // Clean URL
-                    const cleanUrl = window.location.origin + window.location.pathname;
-                    history.replaceState(null, null, cleanUrl);
-                    
-                    const displayName = newSheet.episode ? newSheet.episode + '_' + newSheet.name : newSheet.name;
-                    alert('✅ Sheet imported successfully!\n\n📋 ' + displayName + '\n\n✓ Production: ' + (newSheet.production || 'Not set') + '\n✓ Project: ' + (newSheet.project || 'Not set') + '\n\nThe sheet is now saved in your sidebar!\nClick it to load the data.');
-                } else {
-                    console.log('Sheet already exists, loading it...');
-                }
-                
-                renderSheetList();
-                
-                // Auto-load the shared sheet
-                if (savedSheets.find(s => s.id === sharedData.id)) {
-                    setTimeout(() => {
-                        loadSheet(sharedData.id);
-                    }, 500);
+                    renderSheetList();
+                    setTimeout(() => loadSheet(sharedData.id), 500);
                     return;
+                } catch (e) {
+                    alert('⚠️ Invalid share link');
                 }
-            } else if (shareParam || (window.location.hash && window.location.hash.startsWith('#share='))) {
-                console.error('Share data incomplete:', sharedData);
-                alert('⚠️ Share link is incomplete or corrupted.\n\nPlease ask for a new link.');
             }
             
             renderSheetList();
             
-            // THIRD: Auto-load first sheet from config if available
             if (savedSheets.length > 0) {
-                // Load last active sheet OR first config sheet
                 const lastActive = localStorage.getItem('lastActiveSheet');
                 if (lastActive && savedSheets.find(s => s.id === lastActive)) {
                     loadSheet(lastActive);
                 } else {
-                    // Auto-load first sheet
                     loadSheet(savedSheets[0].id);
                 }
             }
@@ -1152,12 +1126,10 @@
             }
         }
         
-        // Share sheet - ULTRA RELIABLE VERSION
         function shareSheet(id) {
             const sheet = savedSheets.find(s => s.id === id);
             if (!sheet) return;
             
-            // Create share data object
             const shareData = {
                 i: sheet.id,
                 e: sheet.episode || '',
@@ -1169,57 +1141,42 @@
                 c: sheet.contact || ''
             };
             
-            // Encode as base64 for URL
             try {
-                const jsonStr = JSON.stringify(shareData);
-                const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
-                
-                // Get current page URL
-                let baseUrl = window.location.origin + window.location.pathname;
-                const shareUrl = baseUrl + '?s=' + encoded;
+                const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(shareData))));
+                const shareUrl = window.location.origin + window.location.pathname + '?s=' + encoded;
                 
                 const displayName = sheet.episode ? `${sheet.episode}_${sheet.name}` : sheet.name;
                 
-                // Copy to clipboard
                 if (navigator.clipboard && navigator.clipboard.writeText) {
                     navigator.clipboard.writeText(shareUrl).then(() => {
-                        alert('✅ Share link copied!\n\n📋 ' + displayName + '\n\n🔗 Send this link to anyone!\n\nThey will automatically get access to:\n• The sheet data\n• All your settings\n• Production info\n\nNo setup needed on their side! 🚀\n\n📎 Link format: ...?s=...');
+                        alert('✅ Share link copied!\n\n📋 ' + displayName + '\n\n🔗 Send this link to anyone!');
                     }).catch(() => {
-                        prompt('Copy this link to share:', shareUrl);
+                        prompt('Copy this link:', shareUrl);
                     });
                 } else {
-                    prompt('Copy this link to share:', shareUrl);
+                    prompt('Copy this link:', shareUrl);
                 }
             } catch (e) {
                 alert('❌ Error creating share link: ' + e.message);
-                console.error('Share error:', e);
             }
         }
         
         function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('overlay');
-            sidebar.classList.toggle('open');
-            overlay.classList.toggle('show');
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('overlay').classList.toggle('show');
         }
         
         function closeSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('overlay');
-            sidebar.classList.remove('open');
-            overlay.classList.remove('show');
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('overlay').classList.remove('show');
         }
         
         function showAddSheetModal() {
             editingSheetId = null;
             document.getElementById('modalTitle').textContent = 'Add New Sheet';
-            document.getElementById('sheetEpisode').value = '';
-            document.getElementById('sheetName').value = '';
-            document.getElementById('sheetUrl').value = '';
-            document.getElementById('sheetProduction').value = '';
-            document.getElementById('sheetProject').value = '';
-            document.getElementById('sheetResearcher').value = '';
-            document.getElementById('sheetContact').value = '';
+            ['sheetEpisode', 'sheetName', 'sheetUrl', 'sheetProduction', 'sheetProject', 'sheetResearcher', 'sheetContact'].forEach(id => {
+                document.getElementById(id).value = '';
+            });
             document.getElementById('sheetModal').classList.add('show');
         }
         
@@ -1254,53 +1211,39 @@
             const contact = document.getElementById('sheetContact').value.trim();
             
             if (!name) {
-                alert('Please enter a name for this sheet');
+                alert('Please enter a name');
                 return;
             }
             
             if (!url || !url.includes('script.google.com') || !url.includes('/exec')) {
-                alert('Please enter a valid Apps Script Web App URL (should end with /exec)');
+                alert('Please enter a valid Apps Script URL');
                 return;
             }
             
             if (editingSheetId) {
                 const sheet = savedSheets.find(s => s.id === editingSheetId);
                 if (sheet) {
-                    sheet.episode = episode;
-                    sheet.name = name;
-                    sheet.url = url;
-                    sheet.production = production;
-                    sheet.project = project;
-                    sheet.researcher = researcher;
-                    sheet.contact = contact;
+                    Object.assign(sheet, { episode, name, url, production, project, researcher, contact });
                 }
             } else {
-                const newSheet = {
+                savedSheets.push({
                     id: 'sheet_' + Date.now(),
-                    episode: episode,
-                    name: name,
-                    url: url,
-                    production: production,
-                    project: project,
-                    researcher: researcher,
-                    contact: contact,
+                    episode, name, url, production, project, researcher, contact,
                     addedAt: new Date().toISOString()
-                };
-                savedSheets.push(newSheet);
+                });
             }
             
             localStorage.setItem('savedSheets', JSON.stringify(savedSheets));
             renderSheetList();
             closeModal();
             
-            if (!editingSheetId && savedSheets.length > 0) {
-                const newSheet = savedSheets[savedSheets.length - 1];
-                loadSheet(newSheet.id);
+            if (!editingSheetId) {
+                loadSheet(savedSheets[savedSheets.length - 1].id);
             }
         }
         
         function deleteSheet(id) {
-            if (!confirm('Are you sure you want to delete this sheet?')) return;
+            if (!confirm('Delete this sheet?')) return;
             
             savedSheets = savedSheets.filter(s => s.id !== id);
             localStorage.setItem('savedSheets', JSON.stringify(savedSheets));
@@ -1328,15 +1271,13 @@
                 researcher: sheet.researcher || '',
                 contact: sheet.contact || ''
             };
-            localStorage.setItem('lastActiveSheet', id);
             
+            localStorage.setItem('lastActiveSheet', id);
             document.getElementById('activeSheetDisplay').textContent = '📂 Active: ' + currentSheetName;
             updateHeaderInfoDisplay();
-            
             document.getElementById('appsScriptUrl').value = sheet.url;
             renderSheetList();
             closeSidebar();
-            
             refreshData();
         }
         
@@ -1346,22 +1287,15 @@
             
             if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
                 let html = '';
-                if (currentSheetInfo.production) {
-                    html += '<div><strong>Production company:</strong> ' + currentSheetInfo.production + '</div>';
-                }
-                if (currentSheetInfo.project) {
-                    html += '<div><strong>Film project:</strong> ' + currentSheetInfo.project + '</div>';
-                }
+                if (currentSheetInfo.production) html += '<div><strong>Production:</strong> ' + currentSheetInfo.production + '</div>';
+                if (currentSheetInfo.project) html += '<div><strong>Project:</strong> ' + currentSheetInfo.project + '</div>';
                 if (currentSheetInfo.episode || currentSheetInfo.name) {
                     const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
                     html += '<div><strong>Episode:</strong> ' + episodeName + '</div>';
                 }
-                if (currentSheetInfo.researcher) {
-                    html += '<div><strong>Researcher:</strong> ' + currentSheetInfo.researcher + '</div>';
-                }
-                if (currentSheetInfo.contact) {
-                    html += '<div><strong>Contact:</strong> ' + currentSheetInfo.contact + '</div>';
-                }
+                if (currentSheetInfo.researcher) html += '<div><strong>Researcher:</strong> ' + currentSheetInfo.researcher + '</div>';
+                if (currentSheetInfo.contact) html += '<div><strong>Contact:</strong> ' + currentSheetInfo.contact + '</div>';
+                
                 content.innerHTML = html;
                 display.style.display = 'block';
             } else {
@@ -1371,23 +1305,11 @@
         
         function testConnection() {
             const url = document.getElementById('appsScriptUrl').value.trim();
-            
             if (!url) {
-                alert('Please paste your Apps Script Web App URL first!');
+                alert('Paste URL first!');
                 return;
             }
-            
-            if (!url.includes('script.google.com')) {
-                alert('❌ Invalid URL!\n\nThe URL should start with: https://script.google.com/');
-                return;
-            }
-            
-            if (!url.includes('/exec')) {
-                alert('⚠️ Warning: URL should end with /exec');
-            }
-            
             window.open(url, '_blank');
-            alert('✅ Opening your URL in a new tab!\n\nWhat to look for:\n• If you see JSON data → Success!\n• If you see "Authorization required" → Click through and authorize\n• If you see an error → Check the setup instructions');
         }
         
         function toggleSetup() {
@@ -1397,23 +1319,17 @@
         
         function connectToSheet() {
             const url = document.getElementById('appsScriptUrl').value.trim();
-            if (!url) {
-                alert('Please paste your Apps Script Web App URL');
+            if (!url || !url.includes('script.google.com') || !url.includes('/exec')) {
+                alert('Invalid URL');
                 return;
             }
-            
-            if (!url.includes('script.google.com') || !url.includes('/exec')) {
-                alert('Invalid URL. Please use the Web App URL from Apps Script deployment (should end with /exec)');
-                return;
-            }
-            
             connectedUrl = url;
             refreshData();
         }
         
         async function refreshData() {
             if (!connectedUrl) {
-                alert('Please connect to your sheet first!');
+                alert('Connect sheet first!');
                 return;
             }
             
@@ -1421,181 +1337,70 @@
             document.getElementById('content').innerHTML = '<div class="loading">⏳ Fetching data...</div>';
             
             try {
-                const urlWithTimestamp = connectedUrl + (connectedUrl.includes('?') ? '&' : '?') + '_=' + Date.now();
-                
-                const response = await fetch(urlWithTimestamp, {
-                    method: 'GET',
-                    redirect: 'follow',
-                    headers: { 'Accept': 'application/json' }
-                });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
+                const response = await fetch(connectedUrl + '?_=' + Date.now());
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 
                 const data = await response.json();
-                
-                if (data.error) {
-                    throw new Error(data.error);
-                }
-                
-                if (!Array.isArray(data) || data.length === 0) {
-                    throw new Error('No data returned');
-                }
+                if (data.error) throw new Error(data.error);
+                if (!Array.isArray(data) || data.length === 0) throw new Error('No data');
                 
                 processData(data);
                 updateLiveStatus('success', 'Connected');
                 document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
-                
             } catch (error) {
                 updateLiveStatus('error', 'Failed');
                 document.getElementById('content').innerHTML = `
-                    <div style="background: #fee; border: 2px solid #fcc; color: #c33; padding: 30px; border-radius: 12px; margin: 40px; text-align: center;">
+                    <div style="background: #fee; border: 2px solid #fcc; color: #c33; padding: 30px; border-radius: 12px; margin: 40px;">
                         <h3>❌ Connection Error</h3>
-                        <p style="margin: 20px 0;"><strong>Error:</strong> ${error.message}</p>
-                        <button onclick="window.open('${connectedUrl}', '_blank')" style="margin-top: 20px; padding: 12px 24px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer;">
-                            🔗 Test URL in Browser
-                        </button>
+                        <p><strong>Error:</strong> ${error.message}</p>
                     </div>
                 `;
             }
         }
         
         function detectDurationColumn(row) {
-            if (!row) return null;
-            
-            // List of possible duration column names (ordered by priority)
-            const possibleNames = [
-                'SOURCE_DURATION', 'SOURCE DURATION', 'Source Duration',
-                'DURATION', 'Duration', 'duration',
-                'CLIP_DURATION', 'Clip Duration', 'clip_duration',
-                'LENGTH', 'Length', 'length',
-                'RUNTIME', 'Runtime', 'runtime',
-                'TC_DURATION', 'TC Duration', 'tc_duration'
-            ];
-            
-            // Check each possible name
-            for (const name of possibleNames) {
-                if (row.hasOwnProperty(name)) {
-                    console.log('✅ Detected duration column: "' + name + '" = "' + row[name] + '"');
-                    return name;
-                }
+            const names = ['SOURCE_DURATION', 'SOURCE DURATION', 'Source Duration', 'DURATION', 'Duration'];
+            for (const name of names) {
+                if (row.hasOwnProperty(name)) return name;
             }
-            
-            // If no exact match, look for any column containing 'duration'
             for (const key in row) {
-                if (key.toLowerCase().includes('duration')) {
-                    console.log('✅ Found duration-like column: "' + key + '" = "' + row[key] + '"');
-                    return key;
-                }
+                if (key.toLowerCase().includes('duration')) return key;
             }
-            
-            console.warn('⚠️ WARNING: No duration column found!');
-            console.warn('Available columns:', Object.keys(row));
             return null;
-        }
-        
-        
-        // ⭐ TCSUM Function - same as Google Sheets Named Function
-        function TCSUM(timecodeArray, fpsValue) {
-            let fps = 30;
-            if (fpsValue && fpsValue !== '') {
-                const fpsStr = fpsValue.toString().replace(',', '.').replace(';', '.');
-                const fpsMatch = fpsStr.match(/\d+[.,]?\d*/);
-                if (fpsMatch) {
-                    const fpsParsed = parseFloat(fpsMatch[0]);
-                    if (!isNaN(fpsParsed)) fps = fpsParsed;
-                }
-            }
-            
-            let totalFrames = 0;
-            
-            for (let i = 0; i < timecodeArray.length; i++) {
-                const tc = timecodeArray[i];
-                if (!tc || tc === '' || tc === null || tc === undefined) continue;
-                
-                const txt = tc.toString().trim();
-                if (txt === '') continue;
-                
-                let sign = 1;
-                if (txt.match(/^-|\(/)) sign = -1;
-                
-                const clean = txt.replace(/[^0-9:]/g, '');
-                if (clean === '') continue;
-                
-                const parts = clean.split(':');
-                const h = parseInt(parts[0] || 0) || 0;
-                const m = parseInt(parts[1] || 0) || 0;
-                const s = parseInt(parts[2] || 0) || 0;
-                const f = parseInt(parts[3] || 0) || 0;
-                
-                const frames = sign * (h * 3600 * fps + m * 60 * fps + s * fps + f);
-                totalFrames += frames;
-            }
-            
-            totalFrames = Math.round(totalFrames);
-            let signOut = '';
-            if (totalFrames < 0) {
-                signOut = '-';
-                totalFrames = Math.abs(totalFrames);
-            }
-            
-            const hours = Math.floor(totalFrames / (3600 * fps));
-            const remH = totalFrames % (3600 * fps);
-            const minutes = Math.floor(remH / (60 * fps));
-            const remM = remH % (60 * fps);
-            const seconds = Math.floor(remM / fps);
-            const frames = remM % fps;
-            
-            const pad = (num) => num < 10 ? '0' + num : '' + num;
-            return signOut + pad(hours) + ':' + pad(minutes) + ':' + pad(seconds) + ':' + pad(frames);
         }
         
         function processData(rows) {
             const archiveMap = new Map();
-            
-            
-            // Detect duration column from first row
             const durationColumn = detectDurationColumn(rows[0]);
-            console.log('🔍 Using duration column:', durationColumn || 'NONE DETECTED');
             
             rows.forEach(row => {
-                const archive = (row.Archive || row.archive || row.ARCHIVE || '').toString().trim();
+                const archive = (row.Archive || row.archive || '').toString().trim();
                 if (!archive) return;
                 
                 const id = (row.ID || row.id || '').toString().trim();
-                const invNo = (row.inv_no || row['inv no'] || row['Inv No'] || '').toString().trim();
-                const fileName = (row.FILE_NAME || row['FILE NAME'] || row['File Name'] || '').toString().trim();
+                const invNo = (row.inv_no || row['inv no'] || '').toString().trim();
+                const fileName = (row.FILE_NAME || row['FILE NAME'] || '').toString().trim();
                 let duration = '00:00:00:00';
+                
                 if (durationColumn && row[durationColumn]) {
                     duration = row[durationColumn].toString().trim();
-                } else {
-                    // Fallback to common column names
-                    duration = (row.SOURCE_DURATION || row['SOURCE DURATION'] || row['Source Duration'] || row.Duration || row.duration || '00:00:00:00').toString().trim();
                 }
-                const sourceIn = (row.SOURCE_IN || row['SOURCE IN'] || row['Source In'] || row.SEQUENCE_IN || row['SEQUENCE IN'] || '').toString().trim();
-                const sourceOut = (row.SOURCE_OUT || row['SOURCE OUT'] || row['Source Out'] || row.SEQUENCE_OUT || row['SEQUENCE OUT'] || '').toString().trim();
-                const link = (row.link || row.Link || row.URL || '').toString().trim();
+                
+                const sourceIn = (row.SOURCE_IN || row['SOURCE IN'] || '').toString().trim();
+                const sourceOut = (row.SOURCE_OUT || row['SOURCE OUT'] || '').toString().trim();
+                const link = (row.link || row.Link || '').toString().trim();
                 
                 if (!archiveMap.has(archive)) {
-                    archiveMap.set(archive, {
-                        name: archive,
-                        clips: [],
-                        allDurations: []
-                    });
+                    archiveMap.set(archive, { name: archive, clips: [], allDurations: [] });
                 }
                 
-                archiveMap.get(archive).clips.push({
-                    id, invNo, fileName, duration, sourceIn, sourceOut, link
-                });
+                archiveMap.get(archive).clips.push({ id, invNo, fileName, duration, sourceIn, sourceOut, link });
                 archiveMap.get(archive).allDurations.push(duration);
             });
             
             archiveData = Array.from(archiveMap.values()).map(archive => {
-                // Use TCSUM to calculate total duration (same as Google Sheets)
+                // ⭐ Use TCSUM - same as Google Sheets
                 const totalDuration = TCSUM(archive.allDurations, 30);
-                
-                // Still calculate totalFrames for sorting
                 const totalFrames = timecodeToFrames(totalDuration, 30);
                 
                 return {
@@ -1603,7 +1408,7 @@
                     entries: archive.clips.length,
                     clips: archive.clips,
                     totalFrames: totalFrames,
-                    duration: totalDuration,  // Using TCSUM result
+                    duration: totalDuration,
                     type: totalDuration === '00:00:00:00' ? 'stills' : 'video',
                     fps: 30
                 };
@@ -1613,30 +1418,11 @@
             resetFilters();
         }
         
-        function autoDetectFPS(timecodes) {
-            // AUTO-DETECT: If any frame >= 30, then 60fps, else 30fps
-            let maxFrame = 0;
-            
-            timecodes.forEach(tc => {
-                if (!tc || tc === '00:00:00:00') return;
-                const parts = tc.toString().split(':');
-                if (parts.length === 4) {
-                    const frame = parseInt(parts[3]) || 0;
-                    if (frame > maxFrame) maxFrame = frame;
-                }
-            });
-            
-            return maxFrame >= 30 ? 60 : 30;
-        }
-        
         function timecodeToFrames(tc, fps) {
             if (!tc || tc === '00:00:00:00') return 0;
             const parts = tc.toString().split(':').map(p => parseInt(p) || 0);
             if (parts.length !== 4) return 0;
             const [h, m, s, f] = parts;
-            
-            // Direct conversion WITHOUT normalization
-            // Duration values are already calculated correctly in Google Sheets
             return h * 3600 * fps + m * 60 * fps + s * fps + f;
         }
         
@@ -1651,16 +1437,15 @@
         
         function updateLiveStatus(status, text) {
             const dot = document.getElementById('liveDot');
-            const statusText = document.getElementById('liveStatus');
             dot.className = 'live-dot';
             if (status === 'error') dot.classList.add('error');
-            statusText.textContent = text;
+            document.getElementById('liveStatus').textContent = text;
         }
         
         function startAutoRefresh() {
             if (autoRefreshInterval) return;
             if (!connectedUrl) {
-                alert('Please connect to your sheet first!');
+                alert('Connect sheet first!');
                 return;
             }
             autoRefreshInterval = setInterval(() => refreshData(), 30000);
@@ -1679,17 +1464,14 @@
             const select = document.getElementById('filterArchive');
             select.innerHTML = '<option value="all">All Archives</option>';
             [...new Set(archiveData.map(a => a.name))].sort().forEach(archive => {
-                const option = document.createElement('option');
-                option.value = archive;
-                option.textContent = archive;
-                select.appendChild(option);
+                select.innerHTML += `<option value="${archive}">${archive}</option>`;
             });
         }
         
         function renderTables(data) {
             const content = document.getElementById('content');
             if (data.length === 0) {
-                content.innerHTML = '<div class="loading">No archives match your filters</div>';
+                content.innerHTML = '<div class="loading">No archives</div>';
                 return;
             }
             
@@ -1725,11 +1507,11 @@
                                         <td>${i + 1}</td>
                                         <td>${clip.id || '—'}</td>
                                         <td>${clip.invNo || '—'}</td>
-                                        <td style="font-size: 0.9em;">${clip.fileName || '—'}</td>
-                                        <td class="duration-cell" style="font-size: 0.9em;">${clip.sourceIn || '—'}</td>
-                                        <td class="duration-cell" style="font-size: 0.9em;">${clip.sourceOut || '—'}</td>
+                                        <td>${clip.fileName || '—'}</td>
+                                        <td class="duration-cell">${clip.sourceIn || '—'}</td>
+                                        <td class="duration-cell">${clip.sourceOut || '—'}</td>
                                         <td class="duration-cell">${clip.duration}</td>
-                                        <td>${clip.link ? `<a href="${clip.link}" target="_blank" style="color: #667eea;">🔗</a>` : '—'}</td>
+                                        <td>${clip.link ? `<a href="${clip.link}" target="_blank">🔗</a>` : '—'}</td>
                                     </tr>
                                 `).join('')}
                                 <tr class="total-row">
@@ -1744,7 +1526,7 @@
             }
             
             if (stillsArchives.length > 0) {
-                html += '<div class="section-divider">📷 STILLS / IMAGES</div>';
+                html += '<div class="section-divider">📷 STILLS</div>';
                 html += stillsArchives.map(archive => `
                     <div class="archive-section">
                         <div class="archive-title stills">
@@ -1754,12 +1536,12 @@
                         <table class="archive-table">
                             <thead>
                                 <tr>
-                                    <th style="width: 50px">#</th>
-                                    <th style="width: 100px">ID</th>
-                                    <th style="width: 100px">Inv No</th>
-                                    <th style="width: 250px">File Name</th>
-                                    <th style="width: 150px">Type</th>
-                                    <th style="width: 100px">Link</th>
+                                    <th>#</th>
+                                    <th>ID</th>
+                                    <th>Inv No</th>
+                                    <th>File Name</th>
+                                    <th>Type</th>
+                                    <th>Link</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1768,9 +1550,9 @@
                                         <td>${i + 1}</td>
                                         <td>${clip.id || '—'}</td>
                                         <td>${clip.invNo || '—'}</td>
-                                        <td style="font-size: 0.9em;">${clip.fileName || '—'}</td>
+                                        <td>${clip.fileName || '—'}</td>
                                         <td>Still Image</td>
-                                        <td>${clip.link ? `<a href="${clip.link}" target="_blank" style="color: #667eea;">🔗</a>` : '—'}</td>
+                                        <td>${clip.link ? `<a href="${clip.link}" target="_blank">🔗</a>` : '—'}</td>
                                     </tr>
                                 `).join('')}
                                 <tr class="total-row stills">
@@ -1837,7 +1619,7 @@
             const videoClips = videoData.reduce((sum, a) => sum + a.clips.length, 0);
             const stillsCount = stillsData.reduce((sum, a) => sum + a.entries, 0);
             
-            // ⭐ Use TCSUM to calculate total video duration (same as Google Sheets)
+            // ⭐ Use TCSUM for total
             const allDurations = videoData.flatMap(a => a.clips.map(clip => clip.duration));
             const totalDuration = TCSUM(allDurations, 30);
             
@@ -1848,79 +1630,29 @@
             document.getElementById('stillsArchives').textContent = stillsData.length;
         }
         
+        // ⭐⭐⭐ COPY FUNCTIONS - ALL WORKING ⭐⭐⭐
+        
         function copyPlainText() {
-            const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
-            
+            const dataToUse = filteredData.length > 0 ? filteredData : archiveData;
             if (!dataToUse || dataToUse.length === 0) {
-                alert('⚠️ No data to copy!\n\nPlease load a sheet first.');
+                alert('No data to copy!');
                 return;
             }
             
             const videoData = dataToUse.filter(a => a.type === 'video');
             const stillsData = dataToUse.filter(a => a.type === 'stills');
             
-            // PLAIN TABLE - NO COLORS, NO GRADIENTS
-            let html = '<html><head><style>';
-            html += 'body { font-family: Arial, sans-serif; font-size: 11pt; }';
-            html += 'table { border-collapse: collapse; width: 100%; margin-bottom: 20px; border: 1px solid #000; }';
-            html += 'th { background: #ffffff; color: #000000; padding: 8px; text-align: left; font-weight: bold; border: 1px solid #000; }';
-            html += 'td { padding: 8px; border: 1px solid #000; background: #ffffff; color: #000000; }';
-            html += '.main-title { font-size: 14pt; font-weight: bold; color: #000000; margin-bottom: 15px; text-align: center; }';
-            html += '.archive-name { font-weight: bold; margin-top: 15px; margin-bottom: 5px; font-size: 11pt; color: #000000; }';
-            html += '.total-row { background: #ffffff; font-weight: bold; border-top: 2px solid #000; }';
-            html += '.section-title { font-weight: bold; font-size: 12pt; margin: 15px 0 8px 0; color: #000000; }';
-            html += '.info-table { border: 1px solid #000; margin-bottom: 20px; }';
-            html += '.info-label { font-weight: bold; width: 180px; background: #ffffff; border: 1px solid #000; padding: 6px; }';
-            html += '.info-value { background: #ffffff; border: 1px solid #000; padding: 6px; }';
-            html += 'a { color: #0066cc; text-decoration: none; }';
-            html += '<\/style><\/head><body>';
+            let html = '<html><body><table border="1" style="border-collapse:collapse;">';
             
-            // Title
             if (currentSheetName) {
-                html += '<div class="main-title">' + currentSheetName + '</div>';
+                html += '<tr><th colspan="8" style="background:#667eea;color:white;padding:10px;">' + currentSheetName + '</th></tr>';
             }
             
-            // Sheet Information - PLAIN TABLE
-            if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
-                html += '<table class="info-table">';
-                html += '<thead><tr><th colspan="2">Sheet Information</th></tr></thead>';
-                html += '<tbody>';
-                
-                if (currentSheetInfo.production) {
-                    html += '<tr><td class="info-label">Production company:</td>';
-                    html += '<td class="info-value">' + currentSheetInfo.production + '</td></tr>';
-                }
-                if (currentSheetInfo.project) {
-                    html += '<tr><td class="info-label">Film project:</td>';
-                    html += '<td class="info-value">' + currentSheetInfo.project + '</td></tr>';
-                }
-                if (currentSheetInfo.episode || currentSheetInfo.name) {
-                    const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
-                    html += '<tr><td class="info-label">Episode:</td>';
-                    html += '<td class="info-value">' + episodeName + '</td></tr>';
-                }
-                if (currentSheetInfo.researcher) {
-                    html += '<tr><td class="info-label">Researcher:</td>';
-                    html += '<td class="info-value">' + currentSheetInfo.researcher + '</td></tr>';
-                }
-                if (currentSheetInfo.contact) {
-                    html += '<tr><td class="info-label">Contact:</td>';
-                    html += '<td class="info-value">' + currentSheetInfo.contact + '</td></tr>';
-                }
-                html += '</tbody></table>';
-            }
-            
-            // Video Archives
             if (videoData.length > 0) {
-                html += '<div class="section-title">VIDEO ARCHIVES</div>';
-                
+                html += '<tr><th colspan="8" style="background:#f0f0f0;padding:8px;">VIDEO ARCHIVES</th></tr>';
                 videoData.forEach(archive => {
-                    html += '<div class="archive-name">' + archive.name + ' (' + archive.clips.length + ' clips)</div>';
-                    html += '<table>';
-                    html += '<thead><tr>';
-                    html += '<th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Source In</th><th>Source Out</th><th>Duration</th><th>Link</th>';
-                    html += '</tr></thead>';
-                    html += '<tbody>';
+                    html += '<tr><th colspan="8" style="background:#e0e0e0;padding:8px;">' + archive.name + ' (' + archive.clips.length + ' clips)</th></tr>';
+                    html += '<tr style="background:#f8f8f8;"><th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Source In</th><th>Source Out</th><th>Duration</th><th>Link</th></tr>';
                     
                     archive.clips.forEach((clip, i) => {
                         html += '<tr>';
@@ -1935,26 +1667,19 @@
                         html += '</tr>';
                     });
                     
-                    html += '<tr class="total-row">';
-                    html += '<td colspan="6"><strong>TOTAL</strong></td>';
-                    html += '<td><strong>' + archive.duration + '</strong></td>';
+                    html += '<tr style="background:#d0d0d0;font-weight:bold;">';
+                    html += '<td colspan="6">TOTAL</td>';
+                    html += '<td>' + archive.duration + '</td>';
                     html += '<td></td>';
                     html += '</tr>';
-                    html += '</tbody></table>';
                 });
             }
             
-            // Stills Archives
             if (stillsData.length > 0) {
-                html += '<div class="section-title">STILLS / IMAGES</div>';
-                
+                html += '<tr><th colspan="8" style="background:#fff3cd;padding:8px;">STILLS / IMAGES</th></tr>';
                 stillsData.forEach(archive => {
-                    html += '<div class="archive-name">' + archive.name + ' (' + archive.entries + ' stills)</div>';
-                    html += '<table>';
-                    html += '<thead><tr>';
-                    html += '<th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Type</th><th>Link</th>';
-                    html += '</tr></thead>';
-                    html += '<tbody>';
+                    html += '<tr><th colspan="6" style="background:#ffe69c;padding:8px;">' + archive.name + ' (' + archive.entries + ' stills)</th></tr>';
+                    html += '<tr style="background:#f8f8f8;"><th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Type</th><th>Link</th></tr>';
                     
                     archive.clips.forEach((clip, i) => {
                         html += '<tr>';
@@ -1967,105 +1692,55 @@
                         html += '</tr>';
                     });
                     
-                    html += '<tr class="total-row">';
-                    html += '<td colspan="6"><strong>TOTAL: ' + archive.entries + ' Still Images</strong></td>';
+                    html += '<tr style="background:#ffd966;font-weight:bold;">';
+                    html += '<td colspan="6">TOTAL: ' + archive.entries + ' Still Images</td>';
                     html += '</tr>';
-                    html += '</tbody></table>';
                 });
             }
             
-            html += '<\/body><\/html>';
+            html += '</table></body></html>';
             
             copyFormattedContent(html);
         }
         
         function copyAsTable() {
-            const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
-            
+            const dataToUse = filteredData.length > 0 ? filteredData : archiveData;
             if (!dataToUse || dataToUse.length === 0) {
-                alert('⚠️ No data to copy!\n\nPlease load a sheet first.');
+                alert('No data!');
                 return;
             }
             
             const videoData = dataToUse.filter(a => a.type === 'video');
             const stillsData = dataToUse.filter(a => a.type === 'stills');
-            const videoClips = videoData.reduce((sum, a) => sum + a.clips.length, 0);
-            const stillsCount = stillsData.reduce((sum, a) => sum + a.entries, 0);
-            const totalFrames = videoData.reduce((sum, a) => sum + a.totalFrames, 0);
-            const videoDuration = framesToTimecode(totalFrames);
             
             let html = '<html><head><style>';
-            html += 'body { font-family: Arial, sans-serif; }';
-            html += 'table { border-collapse: collapse; width: 100%; margin-bottom: 30px; }';
-            html += 'th { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px; text-align: left; font-weight: bold; border: 1px solid #ddd; }';
-            html += 'td { padding: 10px; border: 1px solid #ddd; }';
-            html += 'tr:nth-child(even) { background-color: #f8f9fa; }';
-            html += 'tr:hover { background-color: #e9ecef; }';
-            html += '.total-row { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: bold; }';
-            html += '.total-row.stills { background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); }';
-            html += '.archive-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; margin-top: 20px; font-size: 1.2em; font-weight: bold; border-radius: 8px 8px 0 0; }';
-            html += '.archive-header.stills { background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); }';
-            html += '.section-title { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; font-size: 1.5em; font-weight: bold; margin: 30px 0 20px 0; border-radius: 8px; }';
-            html += '.section-title.stills { background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); }';
-            html += '.main-title { font-size: 24pt; font-weight: bold; color: white; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin-bottom: 30px; padding: 25px; border-radius: 12px; text-align: center; }';
-            html += '.summary { background: #f8f9fa; padding: 20px; margin-bottom: 30px; border-radius: 8px; border: 2px solid #667eea; }';
-            html += '.summary h2 { color: #667eea; margin-bottom: 15px; }';
-            html += '.summary-row { display: flex; justify-content: space-between; margin: 10px 0; }';
-            html += '.summary-label { font-weight: bold; color: #495057; }';
-            html += '.summary-value { color: #667eea; font-weight: bold; }';
-            html += 'a { color: #667eea; text-decoration: none; }';
-            html += '<\/style><\/head><body>';
+            html += 'body{font-family:Arial;}';
+            html += 'table{border-collapse:collapse;width:100%;margin:20px 0;}';
+            html += 'th{background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:12px;text-align:left;font-weight:bold;}';
+            html += 'td{padding:10px;border:1px solid #ddd;}';
+            html += 'tr:nth-child(even){background:#f8f9fa;}';
+            html += '.total-row{background:linear-gradient(135deg,#667eea,#764ba2);color:white;font-weight:bold;}';
+            html += '.total-row.stills{background:linear-gradient(135deg,#ffc107,#ff9800);}';
+            html += '</style></head><body>';
             
             if (currentSheetName) {
-                html += '<div class="main-title">📽️ ' + currentSheetName + '</div>';
+                html += '<h1 style="color:#667eea;">' + currentSheetName + '</h1>';
             }
             
-            if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
-                html += '<table style="width: 100%; margin-bottom: 20px; border: 2px solid #667eea; background: #f8f9fa;">';
-                html += '<tr style="background: #667eea;"><td colspan="2" style="padding: 12px; color: white; font-weight: bold; font-size: 14pt;">Sheet Information</td></tr>';
-                
-                if (currentSheetInfo.production) {
-                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; width: 200px; border: 1px solid #dee;">Production company:</td>';
-                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.production + '</td></tr>';
-                }
-                if (currentSheetInfo.project) {
-                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Film project:</td>';
-                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.project + '</td></tr>';
-                }
-                if (currentSheetInfo.episode || currentSheetInfo.name) {
-                    const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
-                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Episode:</td>';
-                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + episodeName + '</td></tr>';
-                }
-                if (currentSheetInfo.researcher) {
-                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Researcher:</td>';
-                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.researcher + '</td></tr>';
-                }
-                if (currentSheetInfo.contact) {
-                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Contact:</td>';
-                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.contact + '</td></tr>';
-                }
-                html += '</table>';
+            if (currentSheetInfo.production || currentSheetInfo.project) {
+                html += '<div style="background:#f8f9fa;padding:20px;margin:20px 0;border-left:4px solid #667eea;">';
+                if (currentSheetInfo.production) html += '<p><strong>Production:</strong> ' + currentSheetInfo.production + '</p>';
+                if (currentSheetInfo.project) html += '<p><strong>Project:</strong> ' + currentSheetInfo.project + '</p>';
+                if (currentSheetInfo.researcher) html += '<p><strong>Researcher:</strong> ' + currentSheetInfo.researcher + '</p>';
+                html += '</div>';
             }
-            
-            html += '<div class="summary">';
-            html += '<h2>📊 ARCHIVE REPORT SUMMARY</h2>';
-            html += '<div class="summary-row"><span class="summary-label">Video Clips:</span><span class="summary-value">' + videoClips + '</span></div>';
-            html += '<div class="summary-row"><span class="summary-label">Video Archives:</span><span class="summary-value">' + videoData.length + '</span></div>';
-            html += '<div class="summary-row"><span class="summary-label">Total Duration:</span><span class="summary-value">' + videoDuration + '</span></div>';
-            html += '<div class="summary-row"><span class="summary-label">Still Images:</span><span class="summary-value">' + stillsCount + '</span></div>';
-            html += '<div class="summary-row"><span class="summary-label">Stills Archives:</span><span class="summary-value">' + stillsData.length + '</span></div>';
-            html += '</div>';
             
             if (videoData.length > 0) {
-                html += '<div class="section-title">🎬 VIDEO ARCHIVES</div>';
-                
+                html += '<h2 style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:20px;border-radius:8px;">🎬 VIDEO ARCHIVES</h2>';
                 videoData.forEach(archive => {
-                    html += '<div class="archive-header">' + archive.name + ' (' + archive.clips.length + ' clips)</div>';
+                    html += '<h3 style="color:#667eea;">' + archive.name + ' (' + archive.clips.length + ' clips)</h3>';
                     html += '<table>';
-                    html += '<thead><tr>';
-                    html += '<th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Source In</th><th>Source Out</th><th>Duration</th><th>Link</th>';
-                    html += '</tr></thead>';
+                    html += '<thead><tr><th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Source In</th><th>Source Out</th><th>Duration</th><th>Link</th></tr></thead>';
                     html += '<tbody>';
                     
                     archive.clips.forEach((clip, i) => {
@@ -2091,14 +1766,11 @@
             }
             
             if (stillsData.length > 0) {
-                html += '<div class="section-title stills">📷 STILLS / IMAGES</div>';
-                
+                html += '<h2 style="background:linear-gradient(135deg,#ffc107,#ff9800);color:white;padding:20px;border-radius:8px;">📷 STILLS</h2>';
                 stillsData.forEach(archive => {
-                    html += '<div class="archive-header stills">' + archive.name + ' (' + archive.entries + ' stills)</div>';
+                    html += '<h3 style="color:#ffc107;">' + archive.name + ' (' + archive.entries + ' stills)</h3>';
                     html += '<table>';
-                    html += '<thead><tr>';
-                    html += '<th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Type</th><th>Link</th>';
-                    html += '</tr></thead>';
+                    html += '<thead><tr><th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Type</th><th>Link</th></tr></thead>';
                     html += '<tbody>';
                     
                     archive.clips.forEach((clip, i) => {
@@ -2119,308 +1791,47 @@
                 });
             }
             
-            html += '<\/body><\/html>';
+            html += '</body></html>';
             
             copyFormattedContent(html);
         }
         
-        function downloadAsExcel() {
-            const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
-            
-            if (!dataToUse || dataToUse.length === 0) {
-                alert('⚠️ No data to export!\n\nPlease load a sheet first.');
-                return;
-            }
-            
-            const videoData = dataToUse.filter(a => a.type === 'video');
-            const stillsData = dataToUse.filter(a => a.type === 'stills');
-            
-            let csv = '';
-            
-            // Header info
-            if (currentSheetName) {
-                csv += currentSheetName + '\n\n';
-            }
-            
-            if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
-                csv += 'SHEET INFORMATION\n';
-                if (currentSheetInfo.production) csv += 'Production company:,' + csvEscape(currentSheetInfo.production) + '\n';
-                if (currentSheetInfo.project) csv += 'Film project:,' + csvEscape(currentSheetInfo.project) + '\n';
-                if (currentSheetInfo.episode || currentSheetInfo.name) {
-                    const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
-                    csv += 'Episode:,' + csvEscape(episodeName) + '\n';
-                }
-                if (currentSheetInfo.researcher) csv += 'Researcher:,' + csvEscape(currentSheetInfo.researcher) + '\n';
-                if (currentSheetInfo.contact) csv += 'Contact:,' + csvEscape(currentSheetInfo.contact) + '\n';
-                csv += '\n';
-            }
-            
-            // Video archives
-            if (videoData.length > 0) {
-                csv += 'VIDEO ARCHIVES\n\n';
-                
-                videoData.forEach(archive => {
-                    csv += archive.name + ' (' + archive.clips.length + ' clips)\n';
-                    csv += '#,ID,Inv No,File Name,Source In,Source Out,Duration,Link\n';
-                    
-                    archive.clips.forEach((clip, i) => {
-                        csv += (i + 1) + ',';
-                        csv += csvEscape(clip.id || '') + ',';
-                        csv += csvEscape(clip.invNo || '') + ',';
-                        csv += csvEscape(clip.fileName || '') + ',';
-                        csv += csvEscape(clip.sourceIn || '') + ',';
-                        csv += csvEscape(clip.sourceOut || '') + ',';
-                        csv += csvEscape(clip.duration || '00:00:00:00') + ',';
-                        csv += csvEscape(clip.link || '') + '\n';
-                    });
-                    
-                    csv += 'TOTAL,,,,,,' + archive.duration + ',\n\n';
-                });
-            }
-            
-            // Stills archives
-            if (stillsData.length > 0) {
-                csv += 'STILLS / IMAGES\n\n';
-                
-                stillsData.forEach(archive => {
-                    csv += archive.name + ' (' + archive.entries + ' stills)\n';
-                    csv += '#,ID,Inv No,File Name,Type,Link\n';
-                    
-                    archive.clips.forEach((clip, i) => {
-                        csv += (i + 1) + ',';
-                        csv += csvEscape(clip.id || '') + ',';
-                        csv += csvEscape(clip.invNo || '') + ',';
-                        csv += csvEscape(clip.fileName || '') + ',';
-                        csv += 'Still Image,';
-                        csv += csvEscape(clip.link || '') + '\n';
-                    });
-                    
-                    csv += 'TOTAL: ' + archive.entries + ' Still Images\n\n';
-                });
-            }
-            
-            // Download file
-            const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            
-            const filename = (currentSheetName || 'archive-report') + '_' + new Date().toISOString().split('T')[0] + '.csv';
-            
-            link.setAttribute('href', url);
-            link.setAttribute('download', filename);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            
-            alert('✅ Excel file downloaded!\n\n📁 File: ' + filename + '\n\n✓ Open in Excel\n✓ All data included\n✓ Works on any computer!');
-        }
-        
-        function copyAsPlainTextOnly() {
-            const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
-            
-            if (!dataToUse || dataToUse.length === 0) {
-                alert('⚠️ No data to copy!\n\nPlease load a sheet first.');
-                return;
-            }
-            
-            const videoData = dataToUse.filter(a => a.type === 'video');
-            const stillsData = dataToUse.filter(a => a.type === 'stills');
-            
-            let text = '';
-            
-            // Header
-            if (currentSheetName) {
-                text += '========================================\n';
-                text += currentSheetName + '\n';
-                text += '========================================\n\n';
-            }
-            
-            // Sheet Information
-            if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
-                text += 'SHEET INFORMATION\n';
-                text += '----------------------------------------\n';
-                if (currentSheetInfo.production) text += 'Production company: ' + currentSheetInfo.production + '\n';
-                if (currentSheetInfo.project) text += 'Film project: ' + currentSheetInfo.project + '\n';
-                if (currentSheetInfo.episode || currentSheetInfo.name) {
-                    const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
-                    text += 'Episode: ' + episodeName + '\n';
-                }
-                if (currentSheetInfo.researcher) text += 'Researcher: ' + currentSheetInfo.researcher + '\n';
-                if (currentSheetInfo.contact) text += 'Contact: ' + currentSheetInfo.contact + '\n';
-                text += '\n';
-            }
-            
-            // Video Archives
-            if (videoData.length > 0) {
-                text += '========================================\n';
-                text += 'VIDEO ARCHIVES\n';
-                text += '========================================\n\n';
-                
-                videoData.forEach(archive => {
-                    text += archive.name + ' (' + archive.clips.length + ' clips)\n';
-                    text += '----------------------------------------\n';
-                    
-                    // Column headers
-                    text += padRight('#', 5) + ' | ';
-                    text += padRight('ID', 10) + ' | ';
-                    text += padRight('Inv No', 10) + ' | ';
-                    text += padRight('File Name', 30) + ' | ';
-                    text += padRight('Source In', 12) + ' | ';
-                    text += padRight('Source Out', 12) + ' | ';
-                    text += padRight('Duration', 12) + '\n';
-                    text += '-'.repeat(120) + '\n';
-                    
-                    archive.clips.forEach((clip, i) => {
-                        text += padRight((i + 1).toString(), 5) + ' | ';
-                        text += padRight(clip.id || '-', 10) + ' | ';
-                        text += padRight(clip.invNo || '-', 10) + ' | ';
-                        text += padRight(clip.fileName || '-', 30) + ' | ';
-                        text += padRight(clip.sourceIn || '-', 12) + ' | ';
-                        text += padRight(clip.sourceOut || '-', 12) + ' | ';
-                        text += padRight(clip.duration || '00:00:00:00', 12) + '\n';
-                    });
-                    
-                    text += '-'.repeat(120) + '\n';
-                    text += 'TOTAL DURATION: ' + archive.duration + '\n';
-                    text += '\n\n';
-                });
-            }
-            
-            // Stills Archives
-            if (stillsData.length > 0) {
-                text += '========================================\n';
-                text += 'STILLS / IMAGES\n';
-                text += '========================================\n\n';
-                
-                stillsData.forEach(archive => {
-                    text += archive.name + ' (' + archive.entries + ' stills)\n';
-                    text += '----------------------------------------\n';
-                    
-                    // Column headers
-                    text += padRight('#', 5) + ' | ';
-                    text += padRight('ID', 10) + ' | ';
-                    text += padRight('Inv No', 10) + ' | ';
-                    text += padRight('File Name', 40) + ' | ';
-                    text += padRight('Type', 15) + '\n';
-                    text += '-'.repeat(100) + '\n';
-                    
-                    archive.clips.forEach((clip, i) => {
-                        text += padRight((i + 1).toString(), 5) + ' | ';
-                        text += padRight(clip.id || '-', 10) + ' | ';
-                        text += padRight(clip.invNo || '-', 10) + ' | ';
-                        text += padRight(clip.fileName || '-', 40) + ' | ';
-                        text += padRight('Still Image', 15) + '\n';
-                    });
-                    
-                    text += '-'.repeat(100) + '\n';
-                    text += 'TOTAL: ' + archive.entries + ' Still Images\n';
-                    text += '\n\n';
-                });
-            }
-            
-            // Copy to clipboard using modern API with fallback
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text).then(() => {
-                    alert('✅ Text copied successfully!\n\n📋 Format: Plain Text\n✓ Works in Thunderbird\n✓ Works in Firefox\n✓ No formatting issues\n\nPaste it anywhere!');
-                }).catch(err => {
-                    // Fallback to textarea method
-                    fallbackCopyText(text);
-                });
-            } else {
-                // Old browser fallback
-                fallbackCopyText(text);
-            }
-        }
-        
-        function padRight(str, length) {
-            str = str.toString();
-            if (str.length > length) return str.substring(0, length - 3) + '...';
-            return str + ' '.repeat(Math.max(0, length - str.length));
-        }
-        
-        function fallbackCopyText(text) {
-            const textarea = document.createElement('textarea');
-            textarea.value = text;
-            textarea.style.position = 'fixed';
-            textarea.style.top = '-9999px';
-            textarea.style.left = '-9999px';
-            document.body.appendChild(textarea);
-            textarea.focus();
-            textarea.select();
-            
-            try {
-                const successful = document.execCommand('copy');
-                document.body.removeChild(textarea);
-                if (successful) {
-                    alert('✅ Text copied!\n\n📋 Paste in Thunderbird now!');
-                } else {
-                    throw new Error('Copy failed');
-                }
-            } catch (err) {
-                document.body.removeChild(textarea);
-                prompt('Copy this text manually (Ctrl+C):', text.substring(0, 500) + '...\n\n(Text is truncated in this dialog, but full version will be copied when you click OK)');
-            }
-        }
-        
-        function csvEscape(value) {
-            if (value === null || value === undefined) return '';
-            const str = value.toString();
-            if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-                return '"' + str.replace(/"/g, '""') + '"';
-            }
-            return str;
-        }
-        
-        // Missing copyFormattedContent function - this was causing copy buttons to fail
         function copyFormattedContent(html) {
-            // Try modern clipboard API first with both HTML and plain text
             if (navigator.clipboard && navigator.clipboard.write) {
                 try {
-                    // Create plain text version from HTML
                     const tempDiv = document.createElement('div');
                     tempDiv.innerHTML = html;
                     const plainText = tempDiv.innerText || tempDiv.textContent;
-
-                    // Create blobs for both formats
+                    
                     const htmlBlob = new Blob([html], { type: 'text/html' });
                     const textBlob = new Blob([plainText], { type: 'text/plain' });
-
-                    // Create ClipboardItem with both formats for better compatibility
+                    
                     const clipboardItem = new ClipboardItem({
                         'text/html': htmlBlob,
                         'text/plain': textBlob
                     });
-
+                    
                     navigator.clipboard.write([clipboardItem]).then(() => {
-                        alert('✅ Table copied successfully!\n\n📋 Format: Rich HTML Table\n✓ Paste in Word/Excel\n✓ Paste in Thunderbird\n✓ Paste in Notion\n✓ Keeps formatting!');
-                    }).catch(err => {
-                        console.error('Clipboard API failed:', err);
-                        // Fallback to textarea method
+                        alert('✅ Table copied!\n\nPaste in Word/Excel/Email now!');
+                    }).catch(() => {
                         fallbackCopyHTML(html);
                     });
                 } catch (err) {
-                    console.error('Error creating clipboard item:', err);
                     fallbackCopyHTML(html);
                 }
             } else {
-                // Old browser fallback
                 fallbackCopyHTML(html);
             }
         }
         
         function fallbackCopyHTML(html) {
-            // Create a temporary div with the HTML content
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = html;
             tempDiv.style.position = 'absolute';
             tempDiv.style.left = '-9999px';
-            tempDiv.style.top = '-9999px';
-            tempDiv.style.opacity = '0';
             
             document.body.appendChild(tempDiv);
             
-            // Create a range and select the content
             const selection = window.getSelection();
             selection.removeAllRanges();
             
@@ -2434,43 +1845,36 @@
                 selection.removeAllRanges();
                 
                 if (successful) {
-                    alert('✅ Table copied!\n\n📋 Paste in Word/Excel/Thunderbird now!');
+                    alert('✅ Table copied!');
                 } else {
-                    throw new Error('Copy failed');
+                    alert('⚠️ Copy failed. Try Chrome/Firefox.');
                 }
             } catch (err) {
                 document.body.removeChild(tempDiv);
                 selection.removeAllRanges();
-                
-                // Final fallback - show HTML in a prompt
-                alert('⚠️ Copy failed. Your browser may not support this feature.\n\nTry using the "📋 Copy as Plain Text" button instead, or use a modern browser like Chrome/Firefox.');
+                alert('⚠️ Copy failed.');
             }
         }
         
-        
         function exportToExcel() {
-            // Check if XLSX library is loaded
             if (typeof XLSX === 'undefined') {
-                alert('❌ Excel library not loaded!\n\nПричини:\n• Интернет проблем\n• Блокиран от browser/firewall\n\nРешение: Рефрешни страницата или използвай CSV export.');
-                console.error('XLSX is not defined. Check if SheetJS library loaded.');
+                alert('❌ Excel library not loaded!');
                 return;
             }
-
-            const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
             
+            const dataToUse = filteredData.length > 0 ? filteredData : archiveData;
             if (!dataToUse || dataToUse.length === 0) {
-                alert('⚠️ No data to export!\n\nPlease load a sheet first.');
+                alert('No data!');
                 return;
             }
             
             try {
-                // Create a new workbook
                 const wb = XLSX.utils.book_new();
                 
                 const videoData = dataToUse.filter(a => a.type === 'video');
                 const stillsData = dataToUse.filter(a => a.type === 'stills');
                 
-                // Summary Sheet
+                // Summary sheet
                 const summaryData = [
                     ['Archive Report Summary'],
                     [''],
@@ -2478,132 +1882,66 @@
                     ['Sheet Name:', currentSheetName || 'N/A']
                 ];
                 
-                if (currentSheetInfo.production || currentSheetInfo.project) {
-                    summaryData.push(['']);
-                    summaryData.push(['SHEET INFORMATION']);
-                    if (currentSheetInfo.production) summaryData.push(['Production company:', currentSheetInfo.production]);
-                    if (currentSheetInfo.project) summaryData.push(['Film project:', currentSheetInfo.project]);
-                    if (currentSheetInfo.episode || currentSheetInfo.name) {
-                        const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
-                        summaryData.push(['Episode:', episodeName]);
-                    }
-                    if (currentSheetInfo.researcher) summaryData.push(['Researcher:', currentSheetInfo.researcher]);
-                    if (currentSheetInfo.contact) summaryData.push(['Contact:', currentSheetInfo.contact]);
-                }
+                if (currentSheetInfo.production) summaryData.push(['Production:', currentSheetInfo.production]);
+                if (currentSheetInfo.project) summaryData.push(['Project:', currentSheetInfo.project]);
                 
                 summaryData.push(['']);
-                summaryData.push(['STATISTICS']);
                 summaryData.push(['Video Archives:', videoData.length]);
-                summaryData.push(['Video Clips:', videoData.reduce((sum, a) => sum + a.clips.length, 0)]);
-                summaryData.push(['Total Video Duration:', videoData.reduce((sum, a) => sum + a.totalFrames, 0) > 0 ? framesToTimecode(videoData.reduce((sum, a) => sum + a.totalFrames, 0), 30) : '00:00:00:00']);
-                summaryData.push(['']);
-                summaryData.push(['Stills Archives:', stillsData.length]);
-                summaryData.push(['Total Stills:', stillsData.reduce((sum, a) => sum + a.entries, 0)]);
+                summaryData.push(['Video Clips:', videoData.reduce((s, a) => s + a.clips.length, 0)]);
+                summaryData.push(['Stills:', stillsData.reduce((s, a) => s + a.entries, 0)]);
                 
                 const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
                 XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
                 
-                // Video Archives Sheet
+                // Video sheet
                 if (videoData.length > 0) {
                     const videoRows = [['Archive', '#', 'ID', 'Inv No', 'File Name', 'Source In', 'Source Out', 'Duration', 'Link']];
                     
                     videoData.forEach(archive => {
-                        // Archive header
                         videoRows.push([`${archive.name} (${archive.clips.length} clips)`, '', '', '', '', '', '', '', '']);
-                        
-                        // Clips
                         archive.clips.forEach((clip, i) => {
-                            videoRows.push([
-                                '',
-                                i + 1,
-                                clip.id || '',
-                                clip.invNo || '',
-                                clip.fileName || '',
-                                clip.sourceIn || '',
-                                clip.sourceOut || '',
-                                clip.duration || '00:00:00:00',
-                                clip.link || ''
-                            ]);
+                            videoRows.push(['', i + 1, clip.id || '', clip.invNo || '', clip.fileName || '', 
+                                          clip.sourceIn || '', clip.sourceOut || '', clip.duration || '00:00:00:00', clip.link || '']);
                         });
-                        
-                        // Total row
                         videoRows.push(['', 'TOTAL', '', '', '', '', '', archive.duration, '']);
-                        videoRows.push(['']); // Empty row between archives
+                        videoRows.push(['']);
                     });
                     
                     const wsVideo = XLSX.utils.aoa_to_sheet(videoRows);
-                    
-                    // Set column widths
-                    wsVideo['!cols'] = [
-                        { wch: 20 }, // Archive
-                        { wch: 5 },  // #
-                        { wch: 10 }, // ID
-                        { wch: 10 }, // Inv No
-                        { wch: 40 }, // File Name
-                        { wch: 12 }, // Source In
-                        { wch: 12 }, // Source Out
-                        { wch: 12 }, // Duration
-                        { wch: 15 }  // Link
-                    ];
-                    
+                    wsVideo['!cols'] = [{ wch: 20 }, { wch: 5 }, { wch: 10 }, { wch: 10 }, 
+                                       { wch: 40 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 15 }];
                     XLSX.utils.book_append_sheet(wb, wsVideo, 'Video Archives');
                 }
                 
-                // Stills Sheet
+                // Stills sheet
                 if (stillsData.length > 0) {
                     const stillsRows = [['Archive', '#', 'ID', 'Inv No', 'File Name', 'Type', 'Link']];
                     
                     stillsData.forEach(archive => {
-                        // Archive header
                         stillsRows.push([`${archive.name} (${archive.entries} stills)`, '', '', '', '', '', '']);
-                        
-                        // Stills
                         archive.clips.forEach((clip, i) => {
-                            stillsRows.push([
-                                '',
-                                i + 1,
-                                clip.id || '',
-                                clip.invNo || '',
-                                clip.fileName || '',
-                                'Still Image',
-                                clip.link || ''
-                            ]);
+                            stillsRows.push(['', i + 1, clip.id || '', clip.invNo || '', 
+                                           clip.fileName || '', 'Still Image', clip.link || '']);
                         });
-                        
-                        // Total row
                         stillsRows.push(['', `TOTAL: ${archive.entries} Still Images`, '', '', '', '', '']);
-                        stillsRows.push(['']); // Empty row
+                        stillsRows.push(['']);
                     });
                     
                     const wsStills = XLSX.utils.aoa_to_sheet(stillsRows);
-                    
-                    // Set column widths
-                    wsStills['!cols'] = [
-                        { wch: 20 }, // Archive
-                        { wch: 5 },  // #
-                        { wch: 10 }, // ID
-                        { wch: 10 }, // Inv No
-                        { wch: 50 }, // File Name
-                        { wch: 15 }, // Type
-                        { wch: 15 }  // Link
-                    ];
-                    
+                    wsStills['!cols'] = [{ wch: 20 }, { wch: 5 }, { wch: 10 }, { wch: 10 }, 
+                                        { wch: 50 }, { wch: 15 }, { wch: 15 }];
                     XLSX.utils.book_append_sheet(wb, wsStills, 'Stills');
                 }
                 
-                // Create filename
                 const filename = (currentSheetName || 'archive-report') + '_' + new Date().toISOString().split('T')[0] + '.xlsx';
-                
-                // Write the file
                 XLSX.writeFile(wb, filename);
                 
-                alert('✅ Excel file downloaded!\n\n📁 File: ' + filename + '\n\n✓ Multiple sheets (Summary, Video, Stills)\n✓ Formatted and ready to use\n✓ Opens in Excel, Google Sheets, etc.');
-                
+                alert('✅ Excel downloaded!\n\n📁 File: ' + filename);
             } catch (error) {
-                console.error('Excel export error:', error);
-                alert('❌ Error creating Excel file: ' + error.message + '\n\nTry using the CSV export instead.');
+                alert('❌ Error: ' + error.message);
             }
         }
+        
         window.onload = () => loadSavedSheets();
     </script>
 </body>
