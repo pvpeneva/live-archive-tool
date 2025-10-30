@@ -956,63 +956,22 @@
         let currentSheetName = '';
         let currentSheetInfo = {};
         
-        // ⭐⭐⭐ FIXED TCSUM FUNCTION - MATCHES GOOGLE SHEETS EXACTLY ⭐⭐⭐
-        function TCSUM(timecodeArray, fpsValue) {
-            let fps = 30;
-            if (fpsValue && fpsValue !== '') {
-                const fpsStr = fpsValue.toString().replace(',', '.').replace(';', '.');
-                const fpsMatch = fpsStr.match(/\d+[.,]?\d*/);
-                if (fpsMatch) {
-                    const fpsParsed = parseFloat(fpsMatch[0]);
-                    if (!isNaN(fpsParsed)) fps = fpsParsed;
-                }
-            }
-            
-            let totalFrames = 0;
-            
-            for (let i = 0; i < timecodeArray.length; i++) {
-                const tc = timecodeArray[i];
-                if (!tc || tc === '' || tc === null || tc === undefined) continue;
-                
-                const txt = tc.toString().trim();
-                if (txt === '') continue;
-                
-                let sign = 1;
-                if (txt.match(/^-|\(/)) sign = -1;
-                
-                const clean = txt.replace(/[^0-9:]/g, '');
-                if (clean === '') continue;
-                
-                const parts = clean.split(':');
-                const h = parseInt(parts[0] || 0) || 0;
-                const m = parseInt(parts[1] || 0) || 0;
-                const s = parseInt(parts[2] || 0) || 0;
-                const f = parseInt(parts[3] || 0) || 0;
-                
-                // EXACT calculation - integer arithmetic only
-                const frames = sign * (h * 3600 * fps + m * 60 * fps + s * fps + f);
-                totalFrames += frames;
-            }
-            
-            // Round to eliminate floating point errors
-            totalFrames = Math.round(totalFrames);
-            
-            let signOut = '';
-            if (totalFrames < 0) {
-                signOut = '-';
-                totalFrames = Math.abs(totalFrames);
-            }
-            
-            // Convert back to timecode - integer arithmetic
-            const hours = Math.floor(totalFrames / (3600 * fps));
-            const remH = totalFrames % (3600 * fps);
-            const minutes = Math.floor(remH / (60 * fps));
-            const remM = remH % (60 * fps);
-            const seconds = Math.floor(remM / fps);
-            const frames = Math.round(remM - seconds * fps); // FIX: Use Math.round here
-            
-            const pad = (num) => num < 10 ? '0' + num : '' + num;
-            return signOut + pad(hours) + ':' + pad(minutes) + ':' + pad(seconds) + ':' + pad(frames);
+        // Simple timecode to frames conversion - just reads what's in the sheets
+        function timecodeToFrames(tc, fps) {
+            if (!tc || tc === '00:00:00:00') return 0;
+            const parts = tc.toString().split(':').map(p => parseInt(p) || 0);
+            if (parts.length !== 4) return 0;
+            const [h, m, s, f] = parts;
+            return (h * 3600 * fps) + (m * 60 * fps) + (s * fps) + f;
+        }
+        
+        function framesToTimecode(frames, fps) {
+            if (frames === 0) return '00:00:00:00';
+            const h = Math.floor(frames / (3600 * fps));
+            const m = Math.floor((frames % (3600 * fps)) / (60 * fps));
+            const s = Math.floor((frames % (60 * fps)) / fps);
+            const f = frames % fps;
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}:${String(f).padStart(2, '0')}`;
         }
         
         async function loadSavedSheets() {
@@ -1391,16 +1350,42 @@
                 const link = (row.link || row.Link || '').toString().trim();
                 
                 if (!archiveMap.has(archive)) {
-                    archiveMap.set(archive, { name: archive, clips: [], allDurations: [] });
+                    archiveMap.set(archive, { name: archive, clips: [], totalFromSheet: null });
                 }
                 
-                archiveMap.get(archive).clips.push({ id, invNo, fileName, duration, sourceIn, sourceOut, link });
-                archiveMap.get(archive).allDurations.push(duration);
+                // ⭐ Check if this is a TOTAL row from Google Sheets
+                const isTotalRow = id.toUpperCase().includes('TOTAL') || 
+                                   id.toUpperCase().includes('SUM') ||
+                                   fileName.toUpperCase().includes('TOTAL') ||
+                                   fileName.toUpperCase().includes('SUM');
+                
+                if (isTotalRow && duration && duration !== '00:00:00:00') {
+                    // This is the TOTAL row from Google Sheets - use it directly!
+                    archiveMap.get(archive).totalFromSheet = duration;
+                    console.log('✅ Found TOTAL in sheets for ' + archive + ': ' + duration);
+                } else {
+                    // Regular clip - add to list
+                    archiveMap.get(archive).clips.push({ id, invNo, fileName, duration, sourceIn, sourceOut, link });
+                }
             });
             
             archiveData = Array.from(archiveMap.values()).map(archive => {
-                // ⭐ Use TCSUM - same as Google Sheets
-                const totalDuration = TCSUM(archive.allDurations, 30);
+                let totalDuration = '00:00:00:00';
+                
+                // ⭐⭐⭐ PRIORITY: Use total from Google Sheets if available
+                if (archive.totalFromSheet) {
+                    totalDuration = archive.totalFromSheet;
+                    console.log('✅ Using total from sheets for ' + archive.name + ': ' + totalDuration);
+                } else {
+                    // Fallback: Calculate by summing all durations (simple addition)
+                    let totalFrames = 0;
+                    archive.clips.forEach(clip => {
+                        totalFrames += timecodeToFrames(clip.duration, 30);
+                    });
+                    totalDuration = framesToTimecode(totalFrames, 30);
+                    console.log('⚠️ No total found in sheets for ' + archive.name + ', calculated: ' + totalDuration);
+                }
+                
                 const totalFrames = timecodeToFrames(totalDuration, 30);
                 
                 return {
@@ -1619,9 +1604,9 @@
             const videoClips = videoData.reduce((sum, a) => sum + a.clips.length, 0);
             const stillsCount = stillsData.reduce((sum, a) => sum + a.entries, 0);
             
-            // ⭐ Use TCSUM for total
-            const allDurations = videoData.flatMap(a => a.clips.map(clip => clip.duration));
-            const totalDuration = TCSUM(allDurations, 30);
+            // ⭐ Simply sum up the totalFrames from each archive (which came from sheets)
+            const totalFrames = videoData.reduce((sum, a) => sum + a.totalFrames, 0);
+            const totalDuration = framesToTimecode(totalFrames, 30);
             
             document.getElementById('videoClips').textContent = videoClips;
             document.getElementById('videoArchives').textContent = videoData.length;
