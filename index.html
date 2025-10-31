@@ -926,6 +926,7 @@
             <div class="stat-card video">
                 <div class="stat-value" id="videoDuration">00:00:00:00</div>
                 <div class="stat-label">Video Duration</div>
+                <div style="font-size: 0.7em; color: #999; margin-top: 5px;" id="videoDurationFrames"></div>
             </div>
             <div class="stat-card stills">
                 <div class="stat-value" id="stillsCount">0</div>
@@ -935,6 +936,15 @@
                 <div class="stat-value" id="stillsArchives">0</div>
                 <div class="stat-label">Stills Archives</div>
             </div>
+        </div>
+        
+        <!-- NEW: Debug info panel -->
+        <div id="debugPanel" style="display: none; padding: 20px 40px; background: #fff3cd; border: 2px solid #ffc107; margin: 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h3 style="color: #856404; margin: 0;">🐛 Calculation Debug Info</h3>
+                <button onclick="document.getElementById('debugPanel').style.display='none'" style="background: #856404; color: white; border: none; padding: 5px 15px; border-radius: 5px; cursor: pointer;">Hide</button>
+            </div>
+            <div id="debugContent" style="font-family: monospace; font-size: 0.9em; line-height: 1.8; color: #856404; white-space: pre-wrap;"></div>
         </div>
         
         <div id="headerInfoDisplay" style="display: none; padding: 20px 40px; background: #f8f9fa; border-bottom: 2px solid #e9ecef;">
@@ -1831,11 +1841,46 @@
             const totalResult = TCSUM(allDurations, 30);
             console.log('  📊 TOTAL RESULT:', totalResult.formatted, '(', totalResult.totalFrames, 'frames)');
             
+            // Update display
             document.getElementById('videoClips').textContent = videoClips;
             document.getElementById('videoArchives').textContent = videoData.length;
             document.getElementById('videoDuration').textContent = totalResult.formatted;
+            document.getElementById('videoDurationFrames').textContent = `(${totalResult.totalFrames} frames @ 30fps)`;
             document.getElementById('stillsCount').textContent = stillsCount;
             document.getElementById('stillsArchives').textContent = stillsData.length;
+            
+            // Build debug info
+            let debugText = `📊 CALCULATION DETAILS\n`;
+            debugText += `${'='.repeat(50)}\n\n`;
+            debugText += `Video Archives: ${videoData.length}\n`;
+            debugText += `Total Video Clips: ${videoClips}\n`;
+            debugText += `Total Durations Collected: ${allDurations.length}\n\n`;
+            
+            debugText += `Archives Breakdown:\n`;
+            videoData.forEach((archive, i) => {
+                debugText += `  ${i+1}. ${archive.name}: ${archive.clips.length} clips\n`;
+                debugText += `     Duration: ${archive.duration} (${archive.totalFrames} frames)\n`;
+            });
+            
+            debugText += `\n${'='.repeat(50)}\n`;
+            debugText += `TOTAL CALCULATION:\n`;
+            debugText += `  All ${allDurations.length} durations → TCSUM → ${totalResult.formatted}\n`;
+            debugText += `  Total Frames: ${totalResult.totalFrames}\n\n`;
+            debugText += `Expected (from Google Sheets): 00:00:43:14 (1304 frames)\n`;
+            debugText += `Difference: ${totalResult.totalFrames - 1304} frames\n\n`;
+            
+            if (totalResult.totalFrames !== 1304) {
+                debugText += `⚠️ MISMATCH DETECTED!\n`;
+                debugText += `Showing first 20 durations for inspection:\n`;
+                allDurations.slice(0, 20).forEach((d, i) => {
+                    debugText += `  ${i+1}. ${d}\n`;
+                });
+            } else {
+                debugText += `✅ MATCH! Calculation is correct!\n`;
+            }
+            
+            document.getElementById('debugContent').textContent = debugText;
+            document.getElementById('debugPanel').style.display = 'block';
         }
         
         function copyPlainText() {alert('Copy Plain Text function - implement if needed');}
