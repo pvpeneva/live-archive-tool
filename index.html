@@ -1457,13 +1457,14 @@
                     archiveMap.set(archive, {
                         name: archive,
                         clips: [],
-                        allDurations: []
+                        totalFrames: 0
                     });
                 }
                 archiveMap.get(archive).clips.push({
                     id, invNo, fileName, duration, sourceIn, sourceOut, link
                 });
-                archiveMap.get(archive).allDurations.push(duration);
+                // FIXED: Accumulate frames directly using consistent function
+                archiveMap.get(archive).totalFrames += timecodeToFrames(duration, 30);
             });
             archiveData = Array.from(archiveMap.values()).map(archive => {
                 archive.clips.sort((a, b) => {
@@ -1474,15 +1475,14 @@
                     }
                     return (a.id || '').localeCompare(b.id || '');
                 });
-                const totalDuration = TCSUM(archive.allDurations, 30);
-                const totalFrames = timecodeToFrames(totalDuration, 30);
+                const totalDuration = framesToTimecode(archive.totalFrames, 30);
                 return {
                     name: archive.name,
                     entries: archive.clips.length,
                     clips: archive.clips,
-                    totalFrames: totalFrames,
+                    totalFrames: archive.totalFrames,
                     duration: totalDuration,
-                    type: totalDuration === '00:00:00:00' ? 'stills' : 'video',
+                    type: archive.totalFrames === 0 ? 'stills' : 'video',
                     fps: 30
                 };
             });
