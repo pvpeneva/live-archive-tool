@@ -987,6 +987,7 @@
                 <button class="btn btn-success" onclick="copyAsTable()">📊 Copy with Summary</button>
                 <button class="btn btn-success" onclick="exportToExcel()">📥 Export to Excel</button>
                 <button class="btn btn-secondary" onclick="window.print()">🖨️ Print</button>
+                <button class="btn" onclick="debugCalculations()" style="background: #ff9800; color: white;">🐛 DEBUG</button>
             </div>
         </div>
         
@@ -1508,9 +1509,14 @@
         }
         
         function processData(rows) {
+            console.log('🔄 processData called with', rows.length, 'rows');
+            
             const archiveMap = new Map();
             const durationColumn = detectDurationColumn(rows[0]);
             console.log('🔍 Using duration column:', durationColumn || 'NONE DETECTED');
+            
+            let totalDurationsCollected = 0;
+            
             rows.forEach(row => {
                 const archive = (row.Archive || row.archive || row.ARCHIVE || '').toString().trim();
                 if (!archive) return;
@@ -1537,7 +1543,12 @@
                     id, invNo, fileName, duration, sourceIn, sourceOut, link
                 });
                 archiveMap.get(archive).allDurations.push(duration);
+                totalDurationsCollected++;
             });
+            
+            console.log('📊 Total durations collected:', totalDurationsCollected);
+            console.log('📚 Archives found:', archiveMap.size);
+            
             archiveData = Array.from(archiveMap.values()).map(archive => {
                 archive.clips.sort((a, b) => {
                     const idA = parseInt(a.id) || 0;
@@ -1549,6 +1560,7 @@
                 });
                 // Use TCSUM - now returns object with formatted and totalFrames
                 const result = TCSUM(archive.allDurations, 30);
+                console.log(`  Archive "${archive.name}": ${archive.clips.length} clips = ${result.formatted}`);
                 return {
                     name: archive.name,
                     entries: archive.clips.length,
@@ -1559,6 +1571,9 @@
                     fps: 30
                 };
             });
+            
+            console.log('✅ processData complete. archiveData:', archiveData);
+            
             populateArchiveFilter();
             resetFilters();
         }
@@ -1797,15 +1812,24 @@
         }
         
         function updateStats(data) {
+            console.log('📈 updateStats called with', data.length, 'archives');
+            
             const videoData = data.filter(a => a.type === 'video');
             const stillsData = data.filter(a => a.type === 'stills');
             const videoClips = videoData.reduce((sum, a) => sum + a.clips.length, 0);
             const stillsCount = stillsData.reduce((sum, a) => sum + a.entries, 0);
             
+            console.log('  Video archives:', videoData.length);
+            console.log('  Video clips:', videoClips);
+            
             // CRITICAL FIX: Collect all durations and use TCSUM to calculate total
             // This ensures consistency with Google Sheets formula
             const allDurations = videoData.flatMap(a => a.clips.map(clip => clip.duration));
+            console.log('  Total durations to sum:', allDurations.length);
+            console.log('  First 10 durations:', allDurations.slice(0, 10));
+            
             const totalResult = TCSUM(allDurations, 30);
+            console.log('  📊 TOTAL RESULT:', totalResult.formatted, '(', totalResult.totalFrames, 'frames)');
             
             document.getElementById('videoClips').textContent = videoClips;
             document.getElementById('videoArchives').textContent = videoData.length;
@@ -1816,6 +1840,64 @@
         
         function copyPlainText() {alert('Copy Plain Text function - implement if needed');}
         function copyAsTable() {alert('Copy As Table function - implement if needed');}
+        
+        function debugCalculations() {
+            const videoData = archiveData.filter(a => a.type === 'video');
+            
+            let debugInfo = '🐛 DEBUG INFORMATION\n';
+            debugInfo += '='.repeat(60) + '\n\n';
+            
+            debugInfo += '📊 ARCHIVES FOUND: ' + videoData.length + '\n\n';
+            
+            videoData.forEach((archive, idx) => {
+                debugInfo += `Archive ${idx + 1}: ${archive.name}\n`;
+                debugInfo += `  Clips: ${archive.clips.length}\n`;
+                debugInfo += `  Stored Duration: ${archive.duration}\n`;
+                debugInfo += `  Stored Frames: ${archive.totalFrames}\n`;
+                
+                // Show first 5 durations
+                const sample = archive.clips.slice(0, 5).map(c => c.duration);
+                debugInfo += `  Sample durations: ${sample.join(', ')}\n`;
+                
+                // Recalculate for this archive
+                const allDurations = archive.clips.map(c => c.duration);
+                const result = TCSUM(allDurations, 30);
+                debugInfo += `  Recalculated: ${result.formatted} (${result.totalFrames} frames)\n\n`;
+            });
+            
+            debugInfo += '=' + '='.repeat(60) + '\n';
+            debugInfo += '🎬 TOTAL VIDEO CALCULATION\n\n';
+            
+            // Method 1: Sum of stored totalFrames
+            const sumFrames = videoData.reduce((sum, a) => sum + a.totalFrames, 0);
+            debugInfo += `Method 1 (Sum stored frames): ${sumFrames} frames\n`;
+            
+            // Method 2: Collect all durations and TCSUM
+            const allDurations = videoData.flatMap(a => a.clips.map(clip => clip.duration));
+            debugInfo += `Method 2 (All durations count): ${allDurations.length} timecodes\n`;
+            debugInfo += `Sample: ${allDurations.slice(0, 10).join(', ')}\n`;
+            
+            const totalResult = TCSUM(allDurations, 30);
+            debugInfo += `Method 2 (TCSUM all): ${totalResult.formatted} (${totalResult.totalFrames} frames)\n\n`;
+            
+            debugInfo += '=' + '='.repeat(60) + '\n';
+            debugInfo += '📋 WHAT SHOULD BE IN GOOGLE SHEETS:\n';
+            debugInfo += 'Expected: 00:00:43:14\n';
+            debugInfo += 'Expected frames (at 30fps): 1304\n\n';
+            
+            debugInfo += 'If numbers don\'t match, check:\n';
+            debugInfo += '1. Are we reading the correct sheet?\n';
+            debugInfo += '2. Are there hidden/filtered rows?\n';
+            debugInfo += '3. Is duration column correctly detected?\n';
+            
+            // Show in alert
+            alert(debugInfo);
+            
+            // Also log to console
+            console.log(debugInfo);
+            console.log('Full archiveData:', archiveData);
+        }
+        
         function exportToExcel() {
             if (typeof XLSX === 'undefined') {
                 alert('❌ Excel library not loaded!\n\nRefresh the page or use CSV export.');
