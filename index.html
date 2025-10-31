@@ -1492,7 +1492,19 @@
             // Format output: TEXT(value; "00")
             const pad = (num) => num.toString().padStart(2, '0');
             
-            return sign_out + pad(hours) + ':' + pad(minutes) + ':' + pad(seconds) + ':' + pad(frames);
+            const formatted = sign_out + pad(hours) + ':' + pad(minutes) + ':' + pad(seconds) + ':' + pad(frames);
+            
+            // Return both formatted string and total frames for flexibility
+            return {
+                formatted: formatted,
+                totalFrames: total_frames,
+                fps: fps_num
+            };
+        }
+        
+        // Helper to get just the string (backward compatibility)
+        function TCSUM_String(timecodeArray, fpsValue) {
+            return TCSUM(timecodeArray, fpsValue).formatted;
         }
         
         function processData(rows) {
@@ -1535,16 +1547,15 @@
                     }
                     return (a.id || '').localeCompare(b.id || '');
                 });
-                // Use TCSUM with Google Sheets exact logic
-                const totalDuration = TCSUM(archive.allDurations, 30);
-                const totalFrames = timecodeToFrames(totalDuration, 30);
+                // Use TCSUM - now returns object with formatted and totalFrames
+                const result = TCSUM(archive.allDurations, 30);
                 return {
                     name: archive.name,
                     entries: archive.clips.length,
                     clips: archive.clips,
-                    totalFrames: totalFrames,
-                    duration: totalDuration,
-                    type: totalDuration === '00:00:00:00' ? 'stills' : 'video',
+                    totalFrames: result.totalFrames,
+                    duration: result.formatted,
+                    type: result.formatted === '00:00:00:00' ? 'stills' : 'video',
                     fps: 30
                 };
             });
@@ -1655,11 +1666,11 @@
                                     if (clips.length > 1) {
                                         // Use TCSUM for consistency with Google Sheets
                                         const groupDurations = clips.map(c => c.duration);
-                                        const groupDuration = TCSUM(groupDurations, 30);
+                                        const groupResult = TCSUM(groupDurations, 30);
                                         rows += `
                                             <tr class="id-group-row">
                                                 <td colspan="6"><strong>ID ${id}</strong> (${clips.length} clips)</td>
-                                                <td class="duration-cell">${groupDuration}</td>
+                                                <td class="duration-cell">${groupResult.formatted}</td>
                                                 <td></td>
                                             </tr>
                                         `;
@@ -1791,13 +1802,14 @@
             const videoClips = videoData.reduce((sum, a) => sum + a.clips.length, 0);
             const stillsCount = stillsData.reduce((sum, a) => sum + a.entries, 0);
             
-            // FIXED: Use already calculated totalFrames instead of recalculating
-            const totalFrames = videoData.reduce((sum, a) => sum + a.totalFrames, 0);
-            const totalDuration = framesToTimecode(totalFrames, 30);
+            // CRITICAL FIX: Collect all durations and use TCSUM to calculate total
+            // This ensures consistency with Google Sheets formula
+            const allDurations = videoData.flatMap(a => a.clips.map(clip => clip.duration));
+            const totalResult = TCSUM(allDurations, 30);
             
             document.getElementById('videoClips').textContent = videoClips;
             document.getElementById('videoArchives').textContent = videoData.length;
-            document.getElementById('videoDuration').textContent = totalDuration;
+            document.getElementById('videoDuration').textContent = totalResult.formatted;
             document.getElementById('stillsCount').textContent = stillsCount;
             document.getElementById('stillsArchives').textContent = stillsData.length;
         }
@@ -1840,7 +1852,12 @@
                 summaryData.push(['STATISTICS']);
                 summaryData.push(['Video Archives:', videoData.length]);
                 summaryData.push(['Video Clips:', videoData.reduce((sum, a) => sum + a.clips.length, 0)]);
-                summaryData.push(['Total Video Duration:', videoData.reduce((sum, a) => sum + a.totalFrames, 0) > 0 ? framesToTimecode(videoData.reduce((sum, a) => sum + a.totalFrames, 0), 30) : '00:00:00:00']);
+                
+                // Use TCSUM for total video duration
+                const allVideoDurations = videoData.flatMap(a => a.clips.map(c => c.duration));
+                const totalVideoResult = TCSUM(allVideoDurations, 30);
+                summaryData.push(['Total Video Duration:', totalVideoResult.formatted]);
+                
                 summaryData.push(['']);
                 summaryData.push(['Stills Archives:', stillsData.length]);
                 summaryData.push(['Total Stills:', stillsData.reduce((sum, a) => sum + a.entries, 0)]);
@@ -1862,8 +1879,8 @@
                             if (clips.length > 1) {
                                 // Use TCSUM for consistency
                                 const groupDurations = clips.map(c => c.duration);
-                                const groupDuration = TCSUM(groupDurations, 30);
-                                videoRows.push(['', `ID ${id} (${clips.length} clips)`, '', '', '', '', '', '', groupDuration, '']);
+                                const groupResult = TCSUM(groupDurations, 30);
+                                videoRows.push(['', `ID ${id} (${clips.length} clips)`, '', '', '', '', '', '', groupResult.formatted, '']);
                             }
                             clips.forEach((clip, i) => {
                                 videoRows.push([
