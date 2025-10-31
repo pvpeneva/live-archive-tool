@@ -1728,8 +1728,11 @@
             const stillsData = data.filter(a => a.type === 'stills');
             const videoClips = videoData.reduce((sum, a) => sum + a.clips.length, 0);
             const stillsCount = stillsData.reduce((sum, a) => sum + a.entries, 0);
-            const allDurations = videoData.flatMap(a => a.clips.map(clip => clip.duration));
-            const totalDuration = TCSUM(allDurations, 30);
+            
+            // FIXED: Use already calculated totalFrames instead of recalculating
+            const totalFrames = videoData.reduce((sum, a) => sum + a.totalFrames, 0);
+            const totalDuration = framesToTimecode(totalFrames, 30);
+            
             document.getElementById('videoClips').textContent = videoClips;
             document.getElementById('videoArchives').textContent = videoData.length;
             document.getElementById('videoDuration').textContent = totalDuration;
