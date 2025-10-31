@@ -907,7 +907,9 @@
             <div class="button-group">
                 <button class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
                 <button class="btn btn-secondary" onclick="resetFilters()">Reset All</button>
-                <button class="btn btn-secondary" onclick="window.print()">Print</button>
+                <button class="btn btn-secondary" onclick="window.print()">🖨️ Print</button>
+                <button class="btn btn-secondary" onclick="copyToClipboard()">📋 Copy</button>
+                <button class="btn btn-secondary" onclick="downloadAsExcel()">📊 Excel</button>
             </div>
         </div>
         
@@ -1421,6 +1423,98 @@
             document.getElementById('stillsArchives').textContent = stillsData.length;
         }
         
+        
+        function copyToClipboard() {
+            if (filteredData.length === 0) {
+                alert('No data to copy. Please load data first.');
+                return;
+            }
+            
+            let text = 'ARCHIVE REPORT\n\n';
+            
+            const videoData = filteredData.filter(a => a.type === 'video');
+            const stillsData = filteredData.filter(a => a.type === 'stills');
+            
+            if (videoData.length > 0) {
+                text += '=== VIDEO CLIPS ===\n\n';
+                videoData.forEach(archive => {
+                    text += `Archive: ${archive.name} (${archive.clips.length} clips)\n`;
+                    text += 'ID\tInv No\tFile Name\tSource In\tSource Out\tDuration\n';
+                    archive.clips.forEach((clip, i) => {
+                        text += `${clip.id || '—'}\t${clip.invNo || '—'}\t${clip.fileName || '—'}\t${clip.sourceIn || '—'}\t${clip.sourceOut || '—'}\t${clip.duration}\n`;
+                    });
+                    text += `TOTAL: ${archive.duration}\n\n`;
+                });
+            }
+            
+            if (stillsData.length > 0) {
+                text += '\n=== STILLS / IMAGES ===\n\n';
+                stillsData.forEach(archive => {
+                    text += `Archive: ${archive.name} (${archive.entries} stills)\n`;
+                    text += 'ID\tInv No\tFile Name\tType\n';
+                    archive.clips.forEach((clip, i) => {
+                        text += `${clip.id || '—'}\t${clip.invNo || '—'}\t${clip.fileName || '—'}\tStill Image\n`;
+                    });
+                    text += `TOTAL: ${archive.entries} Still Images\n\n`;
+                });
+            }
+            
+            navigator.clipboard.writeText(text).then(() => {
+                alert('✅ Report copied to clipboard!');
+            }).catch(err => {
+                alert('❌ Failed to copy: ' + err);
+            });
+        }
+        
+        function downloadAsExcel() {
+            if (filteredData.length === 0) {
+                alert('No data to export. Please load data first.');
+                return;
+            }
+            
+            let csv = '';
+            
+            const videoData = filteredData.filter(a => a.type === 'video');
+            const stillsData = filteredData.filter(a => a.type === 'stills');
+            
+            if (videoData.length > 0) {
+                csv += 'VIDEO CLIPS\n\n';
+                videoData.forEach(archive => {
+                    csv += `Archive,${archive.name},Clips,${archive.clips.length}\n`;
+                    csv += '#,ID,Inv No,File Name,Source In,Source Out,Duration,Link\n';
+                    archive.clips.forEach((clip, i) => {
+                        csv += `${i + 1},"${clip.id || ''}","${clip.invNo || ''}","${clip.fileName || ''}","${clip.sourceIn || ''}","${clip.sourceOut || ''}","${clip.duration}","${clip.link || ''}"\n`;
+                    });
+                    csv += `TOTAL,,,,,,${archive.duration},\n\n`;
+                });
+            }
+            
+            if (stillsData.length > 0) {
+                csv += '\nSTILLS / IMAGES\n\n';
+                stillsData.forEach(archive => {
+                    csv += `Archive,${archive.name},Stills,${archive.entries}\n`;
+                    csv += '#,ID,Inv No,File Name,Type,Link\n';
+                    archive.clips.forEach((clip, i) => {
+                        csv += `${i + 1},"${clip.id || ''}","${clip.invNo || ''}","${clip.fileName || ''}",Still Image,"${clip.link || ''}"\n`;
+                    });
+                    csv += `TOTAL: ${archive.entries} Still Images\n\n`;
+                });
+            }
+            
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+            
+            link.setAttribute('href', url);
+            link.setAttribute('download', `Archive_Report_${timestamp}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            alert('✅ Excel file downloaded!');
+        }
         window.onload = function() {
             loadSavedSheets();
         };
