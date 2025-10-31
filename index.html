@@ -1391,47 +1391,108 @@
         }
         
         function TCSUM(timecodeArray, fpsValue) {
-            let fps = 30;
+            // Exact implementation of Google Sheets LET formula
+            
+            // fps_raw: convert to text
+            let fps_raw = '';
             if (fpsValue && fpsValue !== '') {
-                const fpsStr = fpsValue.toString().replace(',', '.').replace(';', '.');
-                const fpsMatch = fpsStr.match(/\d+[.,]?\d*/);
-                if (fpsMatch) {
-                    const fpsParsed = parseFloat(fpsMatch[0]);
-                    if (!isNaN(fpsParsed)) fps = fpsParsed;
+                fps_raw = fpsValue.toString();
+            }
+            
+            // fps_token: extract number using regex
+            let fps_token = '';
+            if (fps_raw !== '') {
+                const match = fps_raw.match(/\d+[.,]?\d*/);
+                fps_token = match ? match[0] : fps_raw;
+            }
+            
+            // fps_norm: normalize (replace , and ; with .)
+            let fps_norm = '';
+            if (fps_token !== '') {
+                fps_norm = fps_token.replace(/,/g, '.').replace(/;/g, '.');
+            }
+            
+            // fps_num: parse as number, default 30
+            let fps_num = 30;
+            if (fps_norm !== '') {
+                const parsed = parseFloat(fps_norm);
+                if (!isNaN(parsed)) {
+                    fps_num = parsed;
                 }
             }
-            let totalFrames = 0;
+            
+            // frames_array: MAP over timecode_range
+            let total_frames = 0;
+            
             for (let i = 0; i < timecodeArray.length; i++) {
                 const tc = timecodeArray[i];
-                if (!tc || tc === '' || tc === null || tc === undefined) continue;
-                const txt = tc.toString().trim();
-                if (txt === '') continue;
-                let sign = 1;
-                if (txt.match(/^-|\(/)) sign = -1;
-                const clean = txt.replace(/[^0-9:]/g, '');
-                if (clean === '') continue;
-                const parts = clean.split(':');
-                const h = parseInt(parts[0] || 0) || 0;
-                const m = parseInt(parts[1] || 0) || 0;
-                const s = parseInt(parts[2] || 0) || 0;
-                const f = parseInt(parts[3] || 0) || 0;
-                const frames = sign * (h * 3600 * fps + m * 60 * fps + s * fps + f);
-                totalFrames += frames;
+                
+                // txt: trim and convert to text
+                let txt = '';
+                try {
+                    txt = (tc || '').toString().trim();
+                } catch (e) {
+                    txt = '';
+                }
+                
+                // is_empty: check if empty or blank
+                const is_empty = (txt === '' || tc === null || tc === undefined);
+                
+                if (!is_empty) {
+                    // sign: check for - or (
+                    const sign = /^-|\(/.test(txt) ? -1 : 1;
+                    
+                    // clean: remove everything except digits and :
+                    const clean = txt.replace(/[^0-9:]/g, '');
+                    
+                    if (clean !== '') {
+                        // parts: split by :
+                        const parts = clean.split(':');
+                        
+                        // Extract h, m, s, f with error handling
+                        const h = parseInt(parts[0] || 0) || 0;
+                        const m = parseInt(parts[1] || 0) || 0;
+                        const s = parseInt(parts[2] || 0) || 0;
+                        const f = parseInt(parts[3] || 0) || 0;
+                        
+                        // Calculate frames: sign*(h*3600*fps+m*60*fps+s*fps+f)
+                        const frames = sign * (h * 3600 * fps_num + m * 60 * fps_num + s * fps_num + f);
+                        total_frames += frames;
+                    }
+                }
             }
-            totalFrames = Math.round(totalFrames);
-            let signOut = '';
-            if (totalFrames < 0) {
-                signOut = '-';
-                totalFrames = Math.abs(totalFrames);
-            }
-            const hours = Math.floor(totalFrames / (3600 * fps));
-            const remH = totalFrames % (3600 * fps);
-            const minutes = Math.floor(remH / (60 * fps));
-            const remM = remH % (60 * fps);
-            const seconds = Math.floor(remM / fps);
-            const frames = remM % fps;
-            const pad = (num) => num < 10 ? '0' + num : '' + num;
-            return signOut + pad(hours) + ':' + pad(minutes) + ':' + pad(seconds) + ':' + pad(frames);
+            
+            // Round total frames
+            total_frames = Math.round(total_frames);
+            
+            // sign_out: determine output sign
+            const sign_out = total_frames < 0 ? '-' : '';
+            
+            // df: absolute value of total frames
+            const df = Math.abs(total_frames);
+            
+            // hours: quotient of df / (3600*fps)
+            const hours = Math.floor(df / (3600 * fps_num));
+            
+            // rem_h: remainder
+            const rem_h = df % (3600 * fps_num);
+            
+            // minutes: quotient of rem_h / (60*fps)
+            const minutes = Math.floor(rem_h / (60 * fps_num));
+            
+            // rem_m: remainder
+            const rem_m = rem_h % (60 * fps_num);
+            
+            // seconds: quotient of rem_m / fps
+            const seconds = Math.floor(rem_m / fps_num);
+            
+            // frames: remainder
+            const frames = rem_m % fps_num;
+            
+            // Format output: TEXT(value; "00")
+            const pad = (num) => num.toString().padStart(2, '0');
+            
+            return sign_out + pad(hours) + ':' + pad(minutes) + ':' + pad(seconds) + ':' + pad(frames);
         }
         
         function processData(rows) {
@@ -1457,14 +1518,13 @@
                     archiveMap.set(archive, {
                         name: archive,
                         clips: [],
-                        totalFrames: 0
+                        allDurations: []
                     });
                 }
                 archiveMap.get(archive).clips.push({
                     id, invNo, fileName, duration, sourceIn, sourceOut, link
                 });
-                // FIXED: Accumulate frames directly using consistent function
-                archiveMap.get(archive).totalFrames += timecodeToFrames(duration, 30);
+                archiveMap.get(archive).allDurations.push(duration);
             });
             archiveData = Array.from(archiveMap.values()).map(archive => {
                 archive.clips.sort((a, b) => {
@@ -1475,14 +1535,16 @@
                     }
                     return (a.id || '').localeCompare(b.id || '');
                 });
-                const totalDuration = framesToTimecode(archive.totalFrames, 30);
+                // Use TCSUM with Google Sheets exact logic
+                const totalDuration = TCSUM(archive.allDurations, 30);
+                const totalFrames = timecodeToFrames(totalDuration, 30);
                 return {
                     name: archive.name,
                     entries: archive.clips.length,
                     clips: archive.clips,
-                    totalFrames: archive.totalFrames,
+                    totalFrames: totalFrames,
                     duration: totalDuration,
-                    type: archive.totalFrames === 0 ? 'stills' : 'video',
+                    type: totalDuration === '00:00:00:00' ? 'stills' : 'video',
                     fps: 30
                 };
             });
@@ -1591,9 +1653,9 @@
                                 ${Array.from(clipsByID.entries()).map(([id, clips]) => {
                                     let rows = '';
                                     if (clips.length > 1) {
-                                        const groupDuration = framesToTimecode(
-                                            clips.reduce((sum, c) => sum + timecodeToFrames(c.duration, 30), 0), 30
-                                        );
+                                        // Use TCSUM for consistency with Google Sheets
+                                        const groupDurations = clips.map(c => c.duration);
+                                        const groupDuration = TCSUM(groupDurations, 30);
                                         rows += `
                                             <tr class="id-group-row">
                                                 <td colspan="6"><strong>ID ${id}</strong> (${clips.length} clips)</td>
@@ -1798,9 +1860,9 @@
                         videoRows.push([`${archive.name} (${archive.clips.length} clips) - Sheet: ${currentSheetName}`, '', '', '', '', '', '', '', '', '']);
                         Array.from(clipsByID.entries()).forEach(([id, clips]) => {
                             if (clips.length > 1) {
-                                const groupDuration = framesToTimecode(
-                                    clips.reduce((sum, c) => sum + timecodeToFrames(c.duration, 30), 0), 30
-                                );
+                                // Use TCSUM for consistency
+                                const groupDurations = clips.map(c => c.duration);
+                                const groupDuration = TCSUM(groupDurations, 30);
                                 videoRows.push(['', `ID ${id} (${clips.length} clips)`, '', '', '', '', '', '', groupDuration, '']);
                             }
                             clips.forEach((clip, i) => {
