@@ -723,8 +723,9 @@
             
             <div style="background: #e7f3ff; border-left: 4px solid #0066cc; padding: 12px; margin-bottom: 15px; border-radius: 4px; font-size: 0.85em;">
                 <strong>💡 Sheet Types:</strong><br>
-                🌐 <strong>Public sheets</strong> - Everyone sees these<br>
-                📝 <strong>Your sheets</strong> - Only you see these
+                🌐 <strong>Public</strong> - Everyone sees (from config)<br>
+                ✏️ <strong>Modified</strong> - Your edited version<br>
+                📝 <strong>Personal</strong> - Only you see these
             </div>
             
             <ul class="sheet-list" id="sheetList"></ul>
@@ -742,6 +743,7 @@
             <input type="text" class="modal-input" id="sheetEpisode" placeholder="Episode Number (e.g., 01, 02, 03...)">
             <input type="text" class="modal-input" id="sheetName" placeholder="Sheet Name (e.g., Duckwitz, Smith Archive)">
             <input type="text" class="modal-input" id="sheetUrl" placeholder="Apps Script Web App URL">
+            <input type="text" class="modal-input" id="sheetLink" placeholder="Google Sheet URL (optional - link to the actual sheet)">
             
             <div style="margin-top: 20px; margin-bottom: 10px; font-weight: 600; color: #667eea;">Header Information (for exports)</div>
             <input type="text" class="modal-input" id="sheetProduction" placeholder="Production Company (e.g., Michael W. King Productions, LLC., USA)">
@@ -1093,6 +1095,7 @@
                         episode: decoded.e || '',
                         name: decoded.n,
                         url: decoded.u,
+                        sheetLink: decoded.l || '',
                         production: decoded.p || '',
                         project: decoded.j || '',
                         researcher: decoded.r || '',
@@ -1172,18 +1175,20 @@
                 list.innerHTML = sortedSheets.map(sheet => {
                     const displayName = sheet.episode ? `${sheet.episode}_${sheet.name}` : sheet.name;
                     const isActive = sheet.id === currentSheetId;
-                    const isConfig = sheet.fromConfig;
-                    console.log('  - ' + displayName + (isActive ? ' (ACTIVE)' : '') + (isConfig ? ' [CONFIG]' : ' [PERSONAL]'));
+                    const isConfig = sheet.fromConfig && !sheet.modified;
+                    const isModifiedConfig = sheet.fromConfig && sheet.modified;
+                    console.log('  - ' + displayName + (isActive ? ' (ACTIVE)' : '') + (isConfig ? ' [CONFIG]' : isModifiedConfig ? ' [MODIFIED CONFIG]' : ' [PERSONAL]'));
                     
                     return `
                     <li class="sheet-item ${isActive ? 'active' : ''}" onclick="loadSheet('${sheet.id}')" 
-                        style="${isConfig ? 'border-left-color: #28a745; background: linear-gradient(135deg, rgba(40, 167, 69, 0.05) 0%, rgba(32, 201, 151, 0.05) 100%);' : ''}">
+                        style="${isConfig ? 'border-left-color: #28a745; background: linear-gradient(135deg, rgba(40, 167, 69, 0.05) 0%, rgba(32, 201, 151, 0.05) 100%);' : isModifiedConfig ? 'border-left-color: #ffc107; background: linear-gradient(135deg, rgba(255, 193, 7, 0.05) 0%, rgba(255, 152, 0, 0.05) 100%);' : ''}">
                         <div class="sheet-item-name">
-                            ${isConfig ? '🌐 ' : ''}${displayName}
+                            ${isConfig ? '🌐 ' : isModifiedConfig ? '✏️ ' : ''}${displayName}
                         </div>
                         <div class="sheet-item-url">${sheet.url.substring(0, 40)}...</div>
                         <div class="sheet-item-actions" onclick="event.stopPropagation()">
-                            ${isConfig ? '' : '<button class="action-btn" onclick="editSheet(\'' + sheet.id + '\')" title="Edit">✏️</button>'}
+                            ${sheet.sheetLink ? '<button class="action-btn" onclick="openSheetLink(\'' + sheet.id + '\')" title="Open Google Sheet">📄</button>' : ''}
+                            <button class="action-btn" onclick="editSheet('${sheet.id}')" title="Edit">✏️</button>
                             <button class="action-btn" onclick="shareSheet('${sheet.id}')" title="Copy Share Link">🔗</button>
                             ${isConfig ? '' : '<button class="action-btn delete" onclick="deleteSheet(\'' + sheet.id + '\')" title="Delete">🗑️</button>'}
                         </div>
@@ -1202,6 +1207,7 @@
                 e: sheet.episode || '',
                 n: sheet.name,
                 u: sheet.url,
+                l: sheet.sheetLink || '',
                 p: sheet.production || '',
                 j: sheet.project || '',
                 r: sheet.researcher || '',
@@ -1217,7 +1223,7 @@
                 
                 if (navigator.clipboard && navigator.clipboard.writeText) {
                     navigator.clipboard.writeText(shareUrl).then(() => {
-                        alert('✅ Share link copied!\n\n📋 ' + displayName + '\n\n🔗 Send this link to anyone!\n\nThey will automatically get access to:\n• The sheet data\n• All your settings\n• Production info\n\nNo setup needed on their side! 🚀');
+                        alert('✅ Share link copied!\n\n📋 ' + displayName + '\n\n🔗 Send this link to anyone!\n\nThey will automatically get access to:\n• The sheet data\n• All your settings\n• Production info\n• Google Sheet link\n\nNo setup needed on their side! 🚀');
                     }).catch(() => {
                         prompt('Copy this link to share:', shareUrl);
                     });
@@ -1250,6 +1256,7 @@
             document.getElementById('sheetEpisode').value = '';
             document.getElementById('sheetName').value = '';
             document.getElementById('sheetUrl').value = '';
+            document.getElementById('sheetLink').value = '';
             document.getElementById('sheetProduction').value = '';
             document.getElementById('sheetProject').value = '';
             document.getElementById('sheetResearcher').value = '';
@@ -1257,21 +1264,33 @@
             document.getElementById('sheetModal').classList.add('show');
         }
         
+        function openSheetLink(id) {
+            const sheet = savedSheets.find(s => s.id === id);
+            if (!sheet) return;
+            
+            if (sheet.sheetLink) {
+                console.log('📄 Opening Google Sheet:', sheet.sheetLink);
+                window.open(sheet.sheetLink, '_blank');
+            } else {
+                alert('⚠️ No Google Sheet link set for this sheet\n\nEdit the sheet to add a Google Sheet URL.');
+            }
+        }
+        
         function editSheet(id) {
             const sheet = savedSheets.find(s => s.id === id);
             if (!sheet) return;
             
-            // Don't allow editing config sheets
-            if (sheet.fromConfig) {
-                alert('⚠️ Cannot edit sheets from config!\n\nThis sheet comes from the public configuration.\nYou can only edit your personal sheets.\n\n💡 Tip: You can create a copy by adding a new sheet with the same URL.');
-                return;
+            // Allow editing config sheets now - they'll be marked as "modified"
+            if (sheet.fromConfig && !sheet.modified) {
+                console.log('⚠️ Editing config sheet - changes will be saved locally');
             }
             
             editingSheetId = id;
-            document.getElementById('modalTitle').textContent = 'Edit Sheet';
+            document.getElementById('modalTitle').textContent = sheet.fromConfig && !sheet.modified ? 'Edit Sheet (Local Copy)' : 'Edit Sheet';
             document.getElementById('sheetEpisode').value = sheet.episode || '';
             document.getElementById('sheetName').value = sheet.name;
             document.getElementById('sheetUrl').value = sheet.url;
+            document.getElementById('sheetLink').value = sheet.sheetLink || '';
             document.getElementById('sheetProduction').value = sheet.production || '';
             document.getElementById('sheetProject').value = sheet.project || '';
             document.getElementById('sheetResearcher').value = sheet.researcher || '';
@@ -1284,11 +1303,12 @@
             editingSheetId = null;
         }
         
-        // FIXED: Save sheet - only save PERSONAL sheets to localStorage (not config sheets)
+        // FIXED: Save sheet - handles sheetLink and marks modified config sheets
         function saveSheet() {
             const episode = document.getElementById('sheetEpisode').value.trim();
             const name = document.getElementById('sheetName').value.trim();
             const url = document.getElementById('sheetUrl').value.trim();
+            const sheetLink = document.getElementById('sheetLink').value.trim();
             const production = document.getElementById('sheetProduction').value.trim();
             const project = document.getElementById('sheetProject').value.trim();
             const researcher = document.getElementById('sheetResearcher').value.trim();
@@ -1310,23 +1330,26 @@
                 // Update existing sheet
                 const sheetIndex = savedSheets.findIndex(s => s.id === editingSheetId);
                 if (sheetIndex >= 0) {
-                    // Don't allow editing config sheets
-                    if (savedSheets[sheetIndex].fromConfig) {
-                        alert('⚠️ Cannot edit sheets from config!\n\nThis sheet comes from the public configuration.\nYou can only edit your personal sheets.');
-                        return;
-                    }
+                    const wasFromConfig = savedSheets[sheetIndex].fromConfig && !savedSheets[sheetIndex].modified;
                     
                     savedSheets[sheetIndex] = {
                         ...savedSheets[sheetIndex],
                         episode: episode,
                         name: name,
                         url: url,
+                        sheetLink: sheetLink,
                         production: production,
                         project: project,
                         researcher: researcher,
-                        contact: contact
+                        contact: contact,
+                        modified: wasFromConfig ? true : savedSheets[sheetIndex].modified  // Mark as modified if was config
                     };
-                    console.log('✅ Updated existing sheet');
+                    
+                    if (wasFromConfig) {
+                        console.log('✅ Updated config sheet (marked as modified)');
+                    } else {
+                        console.log('✅ Updated existing sheet');
+                    }
                 }
             } else {
                 // Add new PERSONAL sheet
@@ -1335,6 +1358,7 @@
                     episode: episode,
                     name: name,
                     url: url,
+                    sheetLink: sheetLink,
                     production: production,
                     project: project,
                     researcher: researcher,
@@ -1346,11 +1370,10 @@
                 console.log('✅ Added new PERSONAL sheet:', newSheet.id);
             }
             
-            // Save ONLY personal sheets to localStorage (filter out config sheets)
-            const personalSheets = savedSheets.filter(s => !s.fromConfig);
-            localStorage.setItem('savedSheets', JSON.stringify(personalSheets));
-            console.log('💾 Saved ' + personalSheets.length + ' personal sheets to localStorage');
-            console.log('📊 Total visible sheets: ' + savedSheets.length + ' (config + personal)');
+            // Save ALL sheets to localStorage (including modified config sheets)
+            localStorage.setItem('savedSheets', JSON.stringify(savedSheets));
+            console.log('💾 Saved to localStorage');
+            console.log('📊 Total visible sheets: ' + savedSheets.length);
             
             // Re-render the list
             renderSheetList();
@@ -1365,6 +1388,12 @@
                 setTimeout(() => {
                     loadSheet(newSheet.id);
                 }, 300);
+            } else if (editingSheetId) {
+                // Reload current sheet to show changes
+                console.log('🔄 Reloading edited sheet:', editingSheetId);
+                setTimeout(() => {
+                    loadSheet(editingSheetId);
+                }, 300);
             }
         }
         
@@ -1372,21 +1401,21 @@
             const sheet = savedSheets.find(s => s.id === id);
             if (!sheet) return;
             
-            // Don't allow deleting config sheets
-            if (sheet.fromConfig) {
-                alert('⚠️ Cannot delete sheets from config!\n\nThis sheet comes from the public configuration.\nYou can only delete your personal sheets.');
+            // Don't allow deleting original config sheets (but allow deleting modified ones)
+            if (sheet.fromConfig && !sheet.modified) {
+                alert('⚠️ Cannot delete original config sheets!\n\nThis sheet comes from the public configuration.\nYou can only delete modified or personal sheets.\n\n💡 Tip: You can edit the sheet to create a local copy.');
                 return;
             }
             
-            if (!confirm('Are you sure you want to delete this sheet?')) return;
+            const sheetType = sheet.modified ? 'modified config sheet' : 'personal sheet';
+            if (!confirm('Are you sure you want to delete this ' + sheetType + '?')) return;
             
-            console.log('🗑️ Deleting personal sheet:', id);
+            console.log('🗑️ Deleting ' + sheetType + ':', id);
             savedSheets = savedSheets.filter(s => s.id !== id);
             
-            // Save only personal sheets
-            const personalSheets = savedSheets.filter(s => !s.fromConfig);
-            localStorage.setItem('savedSheets', JSON.stringify(personalSheets));
-            console.log('✅ Sheet deleted. Remaining personal sheets:', personalSheets.length);
+            // Save to localStorage
+            localStorage.setItem('savedSheets', JSON.stringify(savedSheets));
+            console.log('✅ Sheet deleted. Remaining sheets:', savedSheets.length);
             
             if (currentSheetId === id) {
                 currentSheetId = null;
@@ -1414,7 +1443,8 @@
                 episode: sheet.episode || '',
                 name: sheet.name || '',
                 researcher: sheet.researcher || '',
-                contact: sheet.contact || ''
+                contact: sheet.contact || '',
+                sheetLink: sheet.sheetLink || ''
             };
             localStorage.setItem('lastActiveSheet', id);
             
@@ -1459,6 +1489,11 @@
                 if (currentSheetInfo.contact) {
                     html += '<div style="font-weight: 600; color: #667eea;">📧 Contact:</div>';
                     html += '<div><a href="mailto:' + currentSheetInfo.contact + '" style="color: #667eea; text-decoration: none; font-weight: 600; padding: 8px 16px; background: rgba(102, 126, 234, 0.1); border-radius: 6px; display: inline-block; transition: all 0.3s;" onmouseover="this.style.background=\'rgba(102, 126, 234, 0.2)\'" onmouseout="this.style.background=\'rgba(102, 126, 234, 0.1)\'">' + currentSheetInfo.contact + '</a></div>';
+                }
+                
+                if (currentSheetInfo.sheetLink) {
+                    html += '<div style="font-weight: 600; color: #667eea;">📄 Google Sheet:</div>';
+                    html += '<div><a href="' + currentSheetInfo.sheetLink + '" target="_blank" style="color: #28a745; text-decoration: none; font-weight: 600; padding: 8px 16px; background: rgba(40, 167, 69, 0.1); border-radius: 6px; display: inline-block; transition: all 0.3s;" onmouseover="this.style.background=\'rgba(40, 167, 69, 0.2)\'" onmouseout="this.style.background=\'rgba(40, 167, 69, 0.1)\'">🔗 Open Sheet</a></div>';
                 }
                 
                 content.innerHTML = html;
