@@ -1276,7 +1276,7 @@
                 const invNo = (row.inv_no || row['inv no'] || row['Inv No'] || '').toString().trim();
                 const fileName = (row.FILE_NAME || row['FILE NAME'] || row['File Name'] || '').toString().trim();
                 
-                // PRIORITY: Extract SOURCE_DURATION first (exact match, case variations)
+                // ONLY USE SOURCE_DURATION - extract with all case variations
                 let duration = (
                     row.SOURCE_DURATION || 
                     row['SOURCE_DURATION'] ||
@@ -1289,29 +1289,28 @@
                     '00:00:00:00'
                 ).toString().trim();
                 
-                if (idx < 3) {
-                    console.log(`   Row ${idx}: Archive="${archive}", Duration="${duration}"`);
-                }
-                
+                // ONLY USE SOURCE IN and SOURCE OUT (NOT SEQUENCE)
                 const sourceIn = (
                     row.SOURCE_IN || 
-                    row['SOURCE IN'] || 
+                    row['SOURCE_IN'] || 
                     row['Source In'] || 
                     row.source_in ||
-                    row.SEQUENCE_IN ||
-                    row['SEQUENCE IN'] ||
+                    row['SOURCE IN'] ||
                     ''
                 ).toString().trim();
                 
                 const sourceOut = (
                     row.SOURCE_OUT || 
-                    row['SOURCE OUT'] || 
+                    row['SOURCE_OUT'] || 
                     row['Source Out'] || 
                     row.source_out ||
-                    row.SEQUENCE_OUT ||
-                    row['SEQUENCE OUT'] ||
+                    row['SOURCE OUT'] ||
                     ''
                 ).toString().trim();
+                
+                if (idx < 3) {
+                    console.log(`   Row ${idx}: Archive="${archive}", Duration="${duration}", Source In="${sourceIn}", Source Out="${sourceOut}"`);
+                }
                 
                 const link = (row.link || row.Link || row.URL || '').toString().trim();
                 
