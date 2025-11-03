@@ -1067,6 +1067,9 @@
             const sheet = savedSheets.find(s => s.id === id);
             if (!sheet) return;
             
+            console.log('🔄 Loading sheet:', sheet.name);
+            console.log('   URL:', sheet.url);
+            
             currentSheetId = id;
             connectedUrl = sheet.url;
             currentSheetName = sheet.name;
@@ -1127,6 +1130,9 @@
                 return;
             }
             
+            console.log('🔄 refreshData started for:', currentSheetName);
+            console.log('   URL:', connectedUrl);
+            
             updateLiveStatus('loading', 'Loading...');
             document.getElementById('content').innerHTML = '<div class="loading">⏳ Fetching data...</div>';
             
@@ -1153,6 +1159,8 @@
                     throw new Error('No data returned');
                 }
                 
+                console.log('✅ Data fetched successfully:', data.length, 'rows');
+                
                 processData(data);
                 updateLiveStatus('success', 'Connected');
                 document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
@@ -1172,6 +1180,14 @@
         }
         
         function TCSUM(timecodeArray, fpsValue) {
+            const isDebug = timecodeArray.length < 20; // Only debug small arrays
+            
+            if (isDebug) {
+                console.log('🧮 TCSUM called:');
+                console.log('   - Input count:', timecodeArray.length);
+                console.log('   - Sample inputs:', timecodeArray.slice(0, 5));
+            }
+            
             let fps = 30;
             if (fpsValue && fpsValue !== '') {
                 const fpsStr = fpsValue.toString().replace(',', '.').replace(';', '.');
@@ -1183,19 +1199,30 @@
             }
             
             let totalFrames = 0;
+            let validTimecodes = 0;
+            let invalidTimecodes = 0;
             
             for (let i = 0; i < timecodeArray.length; i++) {
                 const tc = timecodeArray[i];
-                if (!tc || tc === '' || tc === null || tc === undefined) continue;
+                if (!tc || tc === '' || tc === null || tc === undefined) {
+                    invalidTimecodes++;
+                    continue;
+                }
                 
                 const txt = tc.toString().trim();
-                if (txt === '') continue;
+                if (txt === '' || txt === '00:00:00:00') {
+                    invalidTimecodes++;
+                    continue;
+                }
                 
                 let sign = 1;
                 if (txt.match(/^-|\(/)) sign = -1;
                 
                 const clean = txt.replace(/[^0-9:]/g, '');
-                if (clean === '') continue;
+                if (clean === '') {
+                    invalidTimecodes++;
+                    continue;
+                }
                 
                 const parts = clean.split(':');
                 const h = parseInt(parts[0] || 0) || 0;
@@ -1205,6 +1232,13 @@
                 
                 const frames = sign * (h * 3600 * fps + m * 60 * fps + s * fps + f);
                 totalFrames += frames;
+                validTimecodes++;
+            }
+            
+            if (isDebug) {
+                console.log('   - Valid timecodes:', validTimecodes);
+                console.log('   - Invalid/empty:', invalidTimecodes);
+                console.log('   - Total frames:', totalFrames);
             }
             
             totalFrames = Math.round(totalFrames);
@@ -1222,25 +1256,61 @@
             const frames = remM % fps;
             
             const pad = (num) => num < 10 ? '0' + num : '' + num;
-            return signOut + pad(hours) + ':' + pad(minutes) + ':' + pad(seconds) + ':' + pad(frames);
+            const result = signOut + pad(hours) + ':' + pad(minutes) + ':' + pad(seconds) + ':' + pad(frames);
+            
+            if (isDebug) {
+                console.log('   - Result:', result);
+            }
+            
+            return result;
         }
 
         function processData(rows) {
+            // Clear old data first!
+            archiveData = [];
+            filteredData = [];
+            
             const archiveMap = new Map();
             
             rows.forEach(row => {
-                const archive = (row.Archive || row.archive || '').toString().trim();
+                const archive = (row.Archive || row.archive || row.ARCHIVE || '').toString().trim();
                 if (!archive) return;
                 
                 const id = (row.ID || row.id || '').toString().trim();
                 const invNo = (row.inv_no || row['inv no'] || row['Inv No'] || '').toString().trim();
                 const fileName = (row.FILE_NAME || row['FILE NAME'] || row['File Name'] || '').toString().trim();
                 
-                let duration = (row.SOURCE_DURATION || row['SOURCE DURATION'] || row['Source Duration'] || row.Duration || '00:00:00:00').toString().trim();
+                let duration = (
+                    row.SOURCE_DURATION || 
+                    row['SOURCE DURATION'] || 
+                    row['Source Duration'] || 
+                    row.Duration || 
+                    row.duration ||
+                    row.DURATION ||
+                    '00:00:00:00'
+                ).toString().trim();
                 
-                const sourceIn = (row.SOURCE_IN || row['SOURCE IN'] || row['Source In'] || '').toString().trim();
-                const sourceOut = (row.SOURCE_OUT || row['SOURCE OUT'] || row['Source Out'] || '').toString().trim();
+                const sourceIn = (
+                    row.SOURCE_IN || 
+                    row['SOURCE IN'] || 
+                    row['Source In'] || 
+                    row.source_in ||
+                    row.SEQUENCE_IN ||
+                    row['SEQUENCE IN'] ||
+                    ''
+                ).toString().trim();
                 
+                const sourceOut = (
+                    row.SOURCE_OUT || 
+                    row['SOURCE OUT'] || 
+                    row['Source Out'] || 
+                    row.source_out ||
+                    row.SEQUENCE_OUT ||
+                    row['SEQUENCE OUT'] ||
+                    ''
+                ).toString().trim();
+                
+                // Calculate duration from Source In/Out if duration is empty
                 if (!duration || duration === '' || duration === '00:00:00:00') {
                     if (sourceIn && sourceOut && sourceIn !== '' && sourceOut !== '') {
                         const inFrames = timecodeToFrames(sourceIn, 30);
@@ -1266,11 +1336,22 @@
                     id, invNo, fileName, duration, sourceIn, sourceOut, link
                 });
             });
+
             
             archiveData = Array.from(archiveMap.values()).map(archive => {
                 const allDurations = archive.clips.map(clip => clip.duration);
+                
+                console.log(`\n📦 Archive: ${archive.name}`);
+                console.log(`   - Clips: ${archive.clips.length}`);
+                console.log(`   - Sample durations:`, allDurations.slice(0, 5));
+                console.log(`   - Non-zero durations:`, allDurations.filter(d => d !== '00:00:00:00').length);
+                
                 const totalDuration = TCSUM(allDurations, 30);
                 const totalFrames = timecodeToFrames(totalDuration, 30);
+                
+                console.log(`   - Total duration: ${totalDuration}`);
+                console.log(`   - Total frames: ${totalFrames}`);
+                console.log(`   - Type: ${totalFrames === 0 ? 'stills' : 'video'}`);
                 
                 return {
                     name: archive.name,
@@ -1282,6 +1363,11 @@
                     fps: 30
                 };
             });
+            
+            console.log('\n✅ processData complete:');
+            console.log('   - Total archives:', archiveData.length);
+            console.log('   - Video archives:', archiveData.filter(a => a.type === 'video').length);
+            console.log('   - Stills archives:', archiveData.filter(a => a.type === 'stills').length);
             
             populateArchiveFilter();
             resetFilters();
@@ -1487,13 +1573,19 @@
         }
         
         function updateStats(data) {
+            console.log('📊 updateStats called with', data.length, 'archives');
+            
             const videoData = data.filter(a => a.type === 'video');
             const stillsData = data.filter(a => a.type === 'stills');
             const videoClips = videoData.reduce((sum, a) => sum + a.clips.length, 0);
             const stillsCount = stillsData.reduce((sum, a) => sum + a.entries, 0);
             
             const allDurations = videoData.flatMap(a => a.clips.map(clip => clip.duration));
+            console.log('📊 Total durations to sum:', allDurations.length, 'clips');
+            console.log('📊 Sample durations:', allDurations.slice(0, 5));
+            
             const totalDuration = TCSUM(allDurations, 30);
+            console.log('📊 Final total duration:', totalDuration);
             
             document.getElementById('videoClips').textContent = videoClips;
             document.getElementById('videoArchives').textContent = videoData.length;
