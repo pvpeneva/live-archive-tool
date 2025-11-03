@@ -971,20 +971,37 @@
         // FIXED: Load saved sheets - GitHub config FIRST (for everyone), then localStorage (personal)
         async function loadSavedSheets() {
             console.log('🔄 Loading saved sheets...');
+            console.log('📍 Step 1: Initialize empty sheets array');
             
             savedSheets = [];
             
             // PRIORITY 1: Load from GitHub config file FIRST (PUBLIC - everyone sees this)
             try {
-                console.log('🌐 Loading public config from GitHub...');
-                // IMPORTANT: Replace with your actual GitHub URL
-                const configUrl = 'https://raw.githubusercontent.com/frank-drauschke/live-archive-tool/main/sheets-config.json';
-                const response = await fetch(configUrl + '?t=' + Date.now());
+                console.log('🌐 Step 2: Loading public config from GitHub...');
+                
+                // Try 'main' branch first, then 'master' as fallback
+                let configUrl = 'https://raw.githubusercontent.com/frank-drauschke/live-archive-tool/main/sheets-config.json';
+                console.log('   Trying URL: ' + configUrl);
+                
+                let response = await fetch(configUrl + '?t=' + Date.now());
+                console.log('   Response status: ' + response.status);
+                
+                // If 404, try 'master' branch
+                if (response.status === 404) {
+                    console.log('   ⚠️ Not found on "main" branch, trying "master" branch...');
+                    configUrl = 'https://raw.githubusercontent.com/frank-drauschke/live-archive-tool/master/sheets-config.json';
+                    console.log('   Trying URL: ' + configUrl);
+                    response = await fetch(configUrl + '?t=' + Date.now());
+                    console.log('   Response status: ' + response.status);
+                }
                 
                 if (response.ok) {
                     const config = await response.json();
+                    console.log('   ✅ Config loaded successfully!');
+                    console.log('   Config data:', config);
+                    
                     if (config.sheets && Array.isArray(config.sheets)) {
-                        console.log('✅ Loaded ' + config.sheets.length + ' PUBLIC sheets from GitHub');
+                        console.log('   ✅ Found ' + config.sheets.length + ' PUBLIC sheets in config');
                         
                         // Add all config sheets (everyone will see these)
                         config.sheets.forEach(sheet => {
@@ -993,36 +1010,72 @@
                                 fromConfig: true,
                                 addedAt: sheet.addedAt || new Date().toISOString()
                             });
+                            console.log('      + ' + sheet.name);
                         });
+                        
+                        console.log('   ✅ Total public sheets loaded: ' + savedSheets.length);
+                    } else {
+                        console.warn('   ⚠️ Config has no sheets array!');
+                        console.log('   Config structure:', config);
                     }
                 } else {
-                    console.log('⚠️ Config file not found - HTTP ' + response.status);
+                    console.error('   ❌ Config file not found - HTTP ' + response.status);
+                    console.log('   ');
+                    console.log('   🔍 TROUBLESHOOTING:');
+                    console.log('   1. Check if file exists: https://github.com/frank-drauschke/live-archive-tool/blob/main/sheets-config.json');
+                    console.log('   2. OR check master branch: https://github.com/frank-drauschke/live-archive-tool/blob/master/sheets-config.json');
+                    console.log('   3. Make sure repo is PUBLIC');
+                    console.log('   4. Make sure file is in root folder (not in subfolder)');
+                    console.log('   ');
                 }
             } catch (e) {
-                console.log('⚠️ Could not load GitHub config:', e.message);
-                console.log('ℹ️ Will use only localStorage sheets');
+                console.error('   ❌ Error loading GitHub config:', e);
+                console.error('   Error details:', e.message);
+                console.log('   ℹ️ Will continue with only localStorage sheets');
             }
             
             // PRIORITY 2: Add personal sheets from localStorage (only you see these)
             try {
+                console.log('📝 Step 3: Loading personal sheets from localStorage...');
                 const savedLocal = localStorage.getItem('savedSheets');
+                
                 if (savedLocal) {
                     const localSheets = JSON.parse(savedLocal);
-                    console.log('📝 Found ' + localSheets.length + ' sheets in localStorage');
+                    console.log('   ✅ Found ' + localSheets.length + ' sheets in localStorage');
                     
-                    // Add local sheets that are NOT already in config
+                    // IMPORTANT: If config failed to load, show ALL localStorage sheets
+                    // Otherwise only show personal (non-config) sheets
+                    const configLoaded = savedSheets.length > 0;
+                    
                     localSheets.forEach(localSheet => {
-                        if (!localSheet.fromConfig && !savedSheets.find(s => s.id === localSheet.id)) {
-                            savedSheets.push(localSheet);
-                            console.log('  + Added personal sheet: ' + localSheet.name);
+                        const alreadyExists = savedSheets.find(s => s.id === localSheet.id);
+                        
+                        if (!alreadyExists) {
+                            // If config didn't load, add ALL sheets from localStorage
+                            // If config loaded, only add personal sheets
+                            if (!configLoaded || !localSheet.fromConfig) {
+                                savedSheets.push(localSheet);
+                                const type = localSheet.fromConfig ? 'config backup' : 'personal';
+                                console.log('      + ' + localSheet.name + ' (' + type + ')');
+                            }
                         }
                     });
                     
-                    console.log('✅ Total sheets: ' + savedSheets.length + ' (config + personal)');
+                    const addedCount = savedSheets.length - (configLoaded ? savedSheets.filter(s => s.fromConfig).length : 0);
+                    console.log('   ✅ Sheets added from localStorage: ' + addedCount);
+                } else {
+                    console.log('   ℹ️ No personal sheets in localStorage yet');
                 }
             } catch (e) {
-                console.error('❌ Error loading localStorage:', e);
+                console.error('   ❌ Error loading localStorage:', e);
             }
+            
+            console.log('');
+            console.log('📊 FINAL RESULT:');
+            console.log('   Total sheets available: ' + savedSheets.length);
+            console.log('   - Public (config): ' + savedSheets.filter(s => s.fromConfig).length);
+            console.log('   - Personal (local): ' + savedSheets.filter(s => !s.fromConfig).length);
+            console.log('');
             
             // PRIORITY 3: Check for shared sheet in URL
             const urlParams = new URLSearchParams(window.location.search);
