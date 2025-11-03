@@ -875,6 +875,16 @@
             </div>
         </div>
         
+        <div id="headerInfoDisplay" style="display: none; padding: 30px 40px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-bottom: 3px solid #667eea;">
+            <div style="max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); border-left: 6px solid #667eea;">
+                <div style="display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #e9ecef;">
+                    <div style="font-size: 2.5em; margin-right: 15px;">📋</div>
+                    <h2 style="color: #667eea; font-size: 1.8em; margin: 0;">Sheet Information</h2>
+                </div>
+                <div id="headerInfoContent" style="display: grid; grid-template-columns: 200px 1fr; gap: 15px; line-height: 2.2; color: #495057; font-size: 1.05em;"></div>
+            </div>
+        </div>
+        
         <div class="stats-bar">
             <div class="stat-card video">
                 <div class="stat-value" id="videoClips">0</div>
@@ -895,13 +905,6 @@
             <div class="stat-card stills">
                 <div class="stat-value" id="stillsArchives">0</div>
                 <div class="stat-label">Stills Archives</div>
-            </div>
-        </div>
-        
-        <div id="headerInfoDisplay" style="display: none; padding: 20px 40px; background: #f8f9fa; border-bottom: 2px solid #e9ecef;">
-            <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea;">
-                <h3 style="color: #667eea; margin-bottom: 15px;">📋 Sheet Information</h3>
-                <div id="headerInfoContent" style="line-height: 1.8; color: #495057;"></div>
             </div>
         </div>
         
@@ -1429,24 +1432,35 @@
             const display = document.getElementById('headerInfoDisplay');
             const content = document.getElementById('headerInfoContent');
             
-            if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
+            if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher || currentSheetInfo.contact) {
                 let html = '';
+                
                 if (currentSheetInfo.production) {
-                    html += '<div><strong>Production company:</strong> ' + currentSheetInfo.production + '</div>';
+                    html += '<div style="font-weight: 600; color: #667eea;">🏢 Production company:</div>';
+                    html += '<div>' + currentSheetInfo.production + '</div>';
                 }
+                
                 if (currentSheetInfo.project) {
-                    html += '<div><strong>Film project:</strong> ' + currentSheetInfo.project + '</div>';
+                    html += '<div style="font-weight: 600; color: #667eea;">🎬 Film project:</div>';
+                    html += '<div>' + currentSheetInfo.project + '</div>';
                 }
+                
                 if (currentSheetInfo.episode || currentSheetInfo.name) {
                     const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
-                    html += '<div><strong>Episode:</strong> ' + episodeName + '</div>';
+                    html += '<div style="font-weight: 600; color: #667eea;">📺 Episode:</div>';
+                    html += '<div style="font-weight: 600; font-size: 1.1em;">' + episodeName + '</div>';
                 }
+                
                 if (currentSheetInfo.researcher) {
-                    html += '<div><strong>Researcher:</strong> ' + currentSheetInfo.researcher + '</div>';
+                    html += '<div style="font-weight: 600; color: #667eea;">👤 Researcher:</div>';
+                    html += '<div>' + currentSheetInfo.researcher + '</div>';
                 }
+                
                 if (currentSheetInfo.contact) {
-                    html += '<div><strong>Contact:</strong> ' + currentSheetInfo.contact + '</div>';
+                    html += '<div style="font-weight: 600; color: #667eea;">📧 Contact:</div>';
+                    html += '<div><a href="mailto:' + currentSheetInfo.contact + '" style="color: #667eea; text-decoration: none; font-weight: 600; padding: 8px 16px; background: rgba(102, 126, 234, 0.1); border-radius: 6px; display: inline-block; transition: all 0.3s;" onmouseover="this.style.background=\'rgba(102, 126, 234, 0.2)\'" onmouseout="this.style.background=\'rgba(102, 126, 234, 0.1)\'">' + currentSheetInfo.contact + '</a></div>';
                 }
+                
                 content.innerHTML = html;
                 display.style.display = 'block';
             } else {
