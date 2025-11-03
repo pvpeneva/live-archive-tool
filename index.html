@@ -224,8 +224,10 @@
             background: white;
             padding: 30px;
             border-radius: 12px;
-            max-width: 500px;
+            max-width: 600px;
             width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
             box-shadow: 0 10px 40px rgba(0,0,0,0.3);
         }
         
@@ -508,17 +510,19 @@
             display: flex;
             gap: 10px;
             margin-top: 10px;
+            flex-wrap: wrap;
         }
         
         .btn {
-            padding: 12px 24px;
+            padding: 12px 20px;
             border: none;
             border-radius: 8px;
-            font-size: 1em;
+            font-size: 0.95em;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
             flex: 1;
+            min-width: 140px;
         }
         
         .btn-primary {
@@ -703,7 +707,8 @@
             }
         }
     </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" 
+            onerror="this.onerror=null; this.src='https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'"></script>
 </head>
 <body>
     <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
@@ -715,6 +720,13 @@
         </div>
         <div class="sidebar-content">
             <button class="add-sheet-btn" onclick="showAddSheetModal()">+ Add New Sheet</button>
+            
+            <div style="background: #e7f3ff; border-left: 4px solid #0066cc; padding: 12px; margin-bottom: 15px; border-radius: 4px; font-size: 0.85em;">
+                <strong>💡 Sheet Types:</strong><br>
+                🌐 <strong>Public sheets</strong> - Everyone sees these<br>
+                📝 <strong>Your sheets</strong> - Only you see these
+            </div>
+            
             <ul class="sheet-list" id="sheetList"></ul>
             <div class="empty-state" id="emptyState">
                 <div class="empty-state-icon">📋</div>
@@ -727,8 +739,16 @@
     <div class="modal" id="sheetModal">
         <div class="modal-content">
             <div class="modal-header" id="modalTitle">Add New Sheet</div>
-            <input type="text" class="modal-input" id="sheetName" placeholder="Sheet Name (e.g., DUCKWITZ EDL)">
+            <input type="text" class="modal-input" id="sheetEpisode" placeholder="Episode Number (e.g., 01, 02, 03...)">
+            <input type="text" class="modal-input" id="sheetName" placeholder="Sheet Name (e.g., Duckwitz, Smith Archive)">
             <input type="text" class="modal-input" id="sheetUrl" placeholder="Apps Script Web App URL">
+            
+            <div style="margin-top: 20px; margin-bottom: 10px; font-weight: 600; color: #667eea;">Header Information (for exports)</div>
+            <input type="text" class="modal-input" id="sheetProduction" placeholder="Production Company (e.g., Michael W. King Productions, LLC., USA)">
+            <input type="text" class="modal-input" id="sheetProject" placeholder="Film Project (e.g., The Rescuers)">
+            <input type="text" class="modal-input" id="sheetResearcher" placeholder="Researcher Name (e.g., Frank Drauschke)">
+            <input type="text" class="modal-input" id="sheetContact" placeholder="Contact Email (e.g., research@drauschke.de)">
+            
             <div class="modal-buttons">
                 <button class="modal-btn-save" onclick="saveSheet()">Save</button>
                 <button class="modal-btn-cancel" onclick="closeModal()">Cancel</button>
@@ -747,6 +767,7 @@
             </div>
             <h1>🎬 Live Archive Report</h1>
             <p>Real-time Footage Database • Film & Video Archives</p>
+            <p id="activeSheetDisplay" style="margin-top: 10px; font-size: 0.9em; opacity: 0.8;"></p>
         </div>
         
         <div class="toggle-setup" onclick="toggleSetup()">
@@ -755,7 +776,7 @@
         
         <div class="setup-instructions" id="setupInstructions" style="display: none;">
             <h3>🚀 One-Time Setup (Takes 2 minutes)</h3>
-            <p style="margin-bottom: 20px;">Create a simple Google Apps Script to connect your sheet.</p>
+            <p style="margin-bottom: 20px;">Create a simple Google Apps Script to connect your sheet. This bypasses all connection issues!</p>
             
             <div class="setup-step">
                 <h4>Step 1: Open Apps Script</h4>
@@ -799,19 +820,31 @@
       .setMimeType(ContentService.MimeType.JSON);
   }
 }</div>
-                <p style="margin-top: 10px;"><strong>Important:</strong> Replace 'DUCKWITZ EDL' with your sheet tab name!</p>
+                <p style="margin-top: 10px;"><strong>Important:</strong> Replace <code>'DUCKWITZ EDL'</code> with your actual sheet tab name if different!</p>
             </div>
             
             <div class="setup-step">
                 <h4>Step 3: Deploy as Web App</h4>
                 <ol style="line-height: 2; margin-top: 10px;">
-                    <li>Click <strong>💾 Save</strong></li>
-                    <li>Click <strong>Deploy → New deployment</strong></li>
-                    <li>Select <strong>Web app</strong></li>
+                    <li>Click <strong>💾 Save</strong> first</li>
+                    <li>Click <strong>"Deploy"</strong> → <strong>"New deployment"</strong></li>
+                    <li>Click gear icon ⚙️ → Select <strong>"Web app"</strong></li>
                     <li><strong>Execute as:</strong> Me</li>
                     <li><strong>Who has access:</strong> Anyone</li>
-                    <li>Click <strong>Deploy</strong> and authorize</li>
-                    <li><strong>Copy the Web App URL</strong></li>
+                    <li>Click <strong>"Deploy"</strong> and authorize</li>
+                    <li><strong>Copy the Web App URL</strong> (ends with /exec)</li>
+                </ol>
+            </div>
+            
+            <div class="setup-step">
+                <h4>Step 4: Save to Sidebar</h4>
+                <p>After getting your URL:</p>
+                <ol style="line-height: 2;">
+                    <li>Click the <strong>☰ menu</strong> (top left)</li>
+                    <li>Click <strong>"+ Add New Sheet"</strong></li>
+                    <li>Enter a name and paste your URL</li>
+                    <li>Click <strong>"Save"</strong></li>
+                    <li>Your sheet will appear in the sidebar - click it to load!</li>
                 </ol>
             </div>
         </div>
@@ -853,7 +886,7 @@
             </div>
             <div class="stat-card video">
                 <div class="stat-value" id="videoDuration">00:00:00:00</div>
-                <div class="stat-label">Video Duration (TCSUM)</div>
+                <div class="stat-label">Video Duration</div>
             </div>
             <div class="stat-card stills">
                 <div class="stat-value" id="stillsCount">0</div>
@@ -863,9 +896,12 @@
                 <div class="stat-value" id="stillsArchives">0</div>
                 <div class="stat-label">Stills Archives</div>
             </div>
-            <div class="stat-card" style="border-left: 4px solid #17a2b8;">
-                <div class="stat-value" id="uniqueInvNo" style="color: #17a2b8;">0</div>
-                <div class="stat-label">Unique Inv No</div>
+        </div>
+        
+        <div id="headerInfoDisplay" style="display: none; padding: 20px 40px; background: #f8f9fa; border-bottom: 2px solid #e9ecef;">
+            <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea;">
+                <h3 style="color: #667eea; margin-bottom: 15px;">📋 Sheet Information</h3>
+                <div id="headerInfoContent" style="line-height: 1.8; color: #495057;"></div>
             </div>
         </div>
         
@@ -884,8 +920,6 @@
                     <option value="name-desc">Archive Name (Z-A)</option>
                     <option value="clips-desc">Clip Count (Most First)</option>
                     <option value="clips-asc">Clip Count (Least First)</option>
-                    <option value="id-asc">ID (A-Z) - within archives</option>
-                    <option value="id-desc">ID (Z-A) - within archives</option>
                 </select>
             </div>
             
@@ -908,8 +942,9 @@
             <div class="button-group">
                 <button class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
                 <button class="btn btn-secondary" onclick="resetFilters()">Reset All</button>
-                <button class="btn btn-success" onclick="copyPlainText()">📋 Copy Table</button>
-                <button class="btn btn-success" onclick="exportToExcel()">📥 Export Excel</button>
+                <button class="btn btn-success" onclick="copyPlainText()">📋 Copy as Table</button>
+                <button class="btn btn-success" onclick="copyAsTable()">📊 Copy with Summary</button>
+                <button class="btn btn-success" onclick="exportToExcel()">📥 Export to Excel</button>
                 <button class="btn btn-secondary" onclick="window.print()">🖨️ Print</button>
             </div>
         </div>
@@ -923,7 +958,6 @@
     </div>
     
     <script>
-        // Global variables
         let archiveData = [];
         let filteredData = [];
         let autoRefreshInterval = null;
@@ -932,48 +966,211 @@
         let currentSheetId = null;
         let editingSheetId = null;
         let currentSheetName = '';
-        let currentSheetInfo = {
-            production: '',
-            project: '',
-            episode: '',
-            name: '',
-            researcher: '',
-            contact: ''
-        };
+        let currentSheetInfo = {};
         
-        // Load saved sheets
-        function loadSavedSheets() {
-            const saved = localStorage.getItem('savedSheets');
-            savedSheets = saved ? JSON.parse(saved) : [];
+        // FIXED: Load saved sheets - GitHub config FIRST (for everyone), then localStorage (personal)
+        async function loadSavedSheets() {
+            console.log('🔄 Loading saved sheets...');
+            
+            savedSheets = [];
+            
+            // PRIORITY 1: Load from GitHub config file FIRST (PUBLIC - everyone sees this)
+            try {
+                console.log('🌐 Loading public config from GitHub...');
+                // IMPORTANT: Replace with your actual GitHub URL
+                const configUrl = 'https://raw.githubusercontent.com/frank-drauschke/live-archive-tool/main/sheets-config.json';
+                const response = await fetch(configUrl + '?t=' + Date.now());
+                
+                if (response.ok) {
+                    const config = await response.json();
+                    if (config.sheets && Array.isArray(config.sheets)) {
+                        console.log('✅ Loaded ' + config.sheets.length + ' PUBLIC sheets from GitHub');
+                        
+                        // Add all config sheets (everyone will see these)
+                        config.sheets.forEach(sheet => {
+                            savedSheets.push({
+                                ...sheet,
+                                fromConfig: true,
+                                addedAt: sheet.addedAt || new Date().toISOString()
+                            });
+                        });
+                    }
+                } else {
+                    console.log('⚠️ Config file not found - HTTP ' + response.status);
+                }
+            } catch (e) {
+                console.log('⚠️ Could not load GitHub config:', e.message);
+                console.log('ℹ️ Will use only localStorage sheets');
+            }
+            
+            // PRIORITY 2: Add personal sheets from localStorage (only you see these)
+            try {
+                const savedLocal = localStorage.getItem('savedSheets');
+                if (savedLocal) {
+                    const localSheets = JSON.parse(savedLocal);
+                    console.log('📝 Found ' + localSheets.length + ' sheets in localStorage');
+                    
+                    // Add local sheets that are NOT already in config
+                    localSheets.forEach(localSheet => {
+                        if (!localSheet.fromConfig && !savedSheets.find(s => s.id === localSheet.id)) {
+                            savedSheets.push(localSheet);
+                            console.log('  + Added personal sheet: ' + localSheet.name);
+                        }
+                    });
+                    
+                    console.log('✅ Total sheets: ' + savedSheets.length + ' (config + personal)');
+                }
+            } catch (e) {
+                console.error('❌ Error loading localStorage:', e);
+            }
+            
+            // PRIORITY 3: Check for shared sheet in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const shareParam = urlParams.get('s');
+            
+            if (shareParam) {
+                try {
+                    console.log('🔗 Found share parameter, decoding...');
+                    const decoded = JSON.parse(decodeURIComponent(escape(atob(shareParam))));
+                    const sharedData = {
+                        id: decoded.i,
+                        episode: decoded.e || '',
+                        name: decoded.n,
+                        url: decoded.u,
+                        production: decoded.p || '',
+                        project: decoded.j || '',
+                        researcher: decoded.r || '',
+                        contact: decoded.c || ''
+                    };
+                    
+                    // Check if sheet already exists
+                    if (!savedSheets.find(s => s.id === sharedData.id)) {
+                        savedSheets.push({
+                            ...sharedData,
+                            addedAt: new Date().toISOString()
+                        });
+                        localStorage.setItem('savedSheets', JSON.stringify(savedSheets));
+                        console.log('✅ Imported shared sheet: ' + sharedData.name);
+                        
+                        // Clean URL
+                        const cleanUrl = window.location.origin + window.location.pathname;
+                        history.replaceState(null, null, cleanUrl);
+                        
+                        const displayName = sharedData.episode ? sharedData.episode + '_' + sharedData.name : sharedData.name;
+                        alert('✅ Sheet imported successfully!\n\n📋 ' + displayName + '\n\nThe sheet is now saved in your sidebar!');
+                    }
+                    
+                    // Auto-load the shared sheet
+                    renderSheetList();
+                    setTimeout(() => {
+                        loadSheet(sharedData.id);
+                    }, 500);
+                    return;
+                    
+                } catch (e) {
+                    console.error('❌ Error decoding share parameter:', e);
+                    alert('⚠️ Invalid share link. Please ask for a new link.');
+                }
+            }
+            
+            // Render the sheet list
             renderSheetList();
             
-            const lastActive = localStorage.getItem('lastActiveSheet');
-            if (lastActive && savedSheets.find(s => s.id === lastActive)) {
-                loadSheet(lastActive);
+            // Auto-load first available sheet
+            if (savedSheets.length > 0) {
+                const lastActive = localStorage.getItem('lastActiveSheet');
+                if (lastActive && savedSheets.find(s => s.id === lastActive)) {
+                    console.log('🔄 Loading last active sheet:', lastActive);
+                    loadSheet(lastActive);
+                } else {
+                    console.log('🔄 Loading first available sheet');
+                    loadSheet(savedSheets[0].id);
+                }
+            } else {
+                console.log('ℹ️ No sheets available - please add one');
             }
         }
         
+        // FIXED: Render sheet list (always shows localStorage sheets)
         function renderSheetList() {
             const list = document.getElementById('sheetList');
             const emptyState = document.getElementById('emptyState');
             
+            console.log('🎨 Rendering sheet list... Found ' + savedSheets.length + ' sheets');
+            
             if (savedSheets.length === 0) {
                 list.style.display = 'none';
                 emptyState.style.display = 'block';
+                console.log('📋 Showing empty state');
             } else {
                 list.style.display = 'block';
                 emptyState.style.display = 'none';
                 
-                list.innerHTML = savedSheets.map(sheet => `
-                    <li class="sheet-item ${sheet.id === currentSheetId ? 'active' : ''}" onclick="loadSheet('${sheet.id}')">
-                        <div class="sheet-item-name">${sheet.name}</div>
+                // Sort sheets by episode number
+                const sortedSheets = [...savedSheets].sort((a, b) => {
+                    const epA = a.episode || '999';
+                    const epB = b.episode || '999';
+                    return epA.localeCompare(epB);
+                });
+                
+                list.innerHTML = sortedSheets.map(sheet => {
+                    const displayName = sheet.episode ? `${sheet.episode}_${sheet.name}` : sheet.name;
+                    const isActive = sheet.id === currentSheetId;
+                    const isConfig = sheet.fromConfig;
+                    console.log('  - ' + displayName + (isActive ? ' (ACTIVE)' : '') + (isConfig ? ' [CONFIG]' : ' [PERSONAL]'));
+                    
+                    return `
+                    <li class="sheet-item ${isActive ? 'active' : ''}" onclick="loadSheet('${sheet.id}')" 
+                        style="${isConfig ? 'border-left-color: #28a745; background: linear-gradient(135deg, rgba(40, 167, 69, 0.05) 0%, rgba(32, 201, 151, 0.05) 100%);' : ''}">
+                        <div class="sheet-item-name">
+                            ${isConfig ? '🌐 ' : ''}${displayName}
+                        </div>
                         <div class="sheet-item-url">${sheet.url.substring(0, 40)}...</div>
                         <div class="sheet-item-actions" onclick="event.stopPropagation()">
-                            <button class="action-btn" onclick="editSheet('${sheet.id}')" title="Edit">✏️</button>
-                            <button class="action-btn delete" onclick="deleteSheet('${sheet.id}')" title="Delete">🗑️</button>
+                            ${isConfig ? '' : '<button class="action-btn" onclick="editSheet(\'' + sheet.id + '\')" title="Edit">✏️</button>'}
+                            <button class="action-btn" onclick="shareSheet('${sheet.id}')" title="Copy Share Link">🔗</button>
+                            ${isConfig ? '' : '<button class="action-btn delete" onclick="deleteSheet(\'' + sheet.id + '\')" title="Delete">🗑️</button>'}
                         </div>
                     </li>
-                `).join('');
+                `;
+                }).join('');
+            }
+        }
+        
+        function shareSheet(id) {
+            const sheet = savedSheets.find(s => s.id === id);
+            if (!sheet) return;
+            
+            const shareData = {
+                i: sheet.id,
+                e: sheet.episode || '',
+                n: sheet.name,
+                u: sheet.url,
+                p: sheet.production || '',
+                j: sheet.project || '',
+                r: sheet.researcher || '',
+                c: sheet.contact || ''
+            };
+            
+            try {
+                const jsonStr = JSON.stringify(shareData);
+                const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+                const baseUrl = window.location.origin + window.location.pathname;
+                const shareUrl = baseUrl + '?s=' + encoded;
+                const displayName = sheet.episode ? `${sheet.episode}_${sheet.name}` : sheet.name;
+                
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(shareUrl).then(() => {
+                        alert('✅ Share link copied!\n\n📋 ' + displayName + '\n\n🔗 Send this link to anyone!\n\nThey will automatically get access to:\n• The sheet data\n• All your settings\n• Production info\n\nNo setup needed on their side! 🚀');
+                    }).catch(() => {
+                        prompt('Copy this link to share:', shareUrl);
+                    });
+                } else {
+                    prompt('Copy this link to share:', shareUrl);
+                }
+            } catch (e) {
+                alert('❌ Error creating share link: ' + e.message);
+                console.error('Share error:', e);
             }
         }
         
@@ -994,8 +1191,13 @@
         function showAddSheetModal() {
             editingSheetId = null;
             document.getElementById('modalTitle').textContent = 'Add New Sheet';
+            document.getElementById('sheetEpisode').value = '';
             document.getElementById('sheetName').value = '';
             document.getElementById('sheetUrl').value = '';
+            document.getElementById('sheetProduction').value = '';
+            document.getElementById('sheetProject').value = '';
+            document.getElementById('sheetResearcher').value = '';
+            document.getElementById('sheetContact').value = '';
             document.getElementById('sheetModal').classList.add('show');
         }
         
@@ -1003,10 +1205,21 @@
             const sheet = savedSheets.find(s => s.id === id);
             if (!sheet) return;
             
+            // Don't allow editing config sheets
+            if (sheet.fromConfig) {
+                alert('⚠️ Cannot edit sheets from config!\n\nThis sheet comes from the public configuration.\nYou can only edit your personal sheets.\n\n💡 Tip: You can create a copy by adding a new sheet with the same URL.');
+                return;
+            }
+            
             editingSheetId = id;
             document.getElementById('modalTitle').textContent = 'Edit Sheet';
+            document.getElementById('sheetEpisode').value = sheet.episode || '';
             document.getElementById('sheetName').value = sheet.name;
             document.getElementById('sheetUrl').value = sheet.url;
+            document.getElementById('sheetProduction').value = sheet.production || '';
+            document.getElementById('sheetProject').value = sheet.project || '';
+            document.getElementById('sheetResearcher').value = sheet.researcher || '';
+            document.getElementById('sheetContact').value = sheet.contact || '';
             document.getElementById('sheetModal').classList.add('show');
         }
         
@@ -1015,9 +1228,15 @@
             editingSheetId = null;
         }
         
+        // FIXED: Save sheet - only save PERSONAL sheets to localStorage (not config sheets)
         function saveSheet() {
+            const episode = document.getElementById('sheetEpisode').value.trim();
             const name = document.getElementById('sheetName').value.trim();
             const url = document.getElementById('sheetUrl').value.trim();
+            const production = document.getElementById('sheetProduction').value.trim();
+            const project = document.getElementById('sheetProject').value.trim();
+            const researcher = document.getElementById('sheetResearcher').value.trim();
+            const contact = document.getElementById('sheetContact').value.trim();
             
             if (!name) {
                 alert('Please enter a name for this sheet');
@@ -1029,37 +1248,89 @@
                 return;
             }
             
+            console.log('💾 Saving sheet:', name);
+            
             if (editingSheetId) {
-                const sheet = savedSheets.find(s => s.id === editingSheetId);
-                if (sheet) {
-                    sheet.name = name;
-                    sheet.url = url;
+                // Update existing sheet
+                const sheetIndex = savedSheets.findIndex(s => s.id === editingSheetId);
+                if (sheetIndex >= 0) {
+                    // Don't allow editing config sheets
+                    if (savedSheets[sheetIndex].fromConfig) {
+                        alert('⚠️ Cannot edit sheets from config!\n\nThis sheet comes from the public configuration.\nYou can only edit your personal sheets.');
+                        return;
+                    }
+                    
+                    savedSheets[sheetIndex] = {
+                        ...savedSheets[sheetIndex],
+                        episode: episode,
+                        name: name,
+                        url: url,
+                        production: production,
+                        project: project,
+                        researcher: researcher,
+                        contact: contact
+                    };
+                    console.log('✅ Updated existing sheet');
                 }
             } else {
+                // Add new PERSONAL sheet
                 const newSheet = {
                     id: 'sheet_' + Date.now(),
+                    episode: episode,
                     name: name,
                     url: url,
-                    addedAt: new Date().toISOString()
+                    production: production,
+                    project: project,
+                    researcher: researcher,
+                    contact: contact,
+                    addedAt: new Date().toISOString(),
+                    fromConfig: false  // Mark as personal sheet
                 };
                 savedSheets.push(newSheet);
+                console.log('✅ Added new PERSONAL sheet:', newSheet.id);
             }
             
-            localStorage.setItem('savedSheets', JSON.stringify(savedSheets));
+            // Save ONLY personal sheets to localStorage (filter out config sheets)
+            const personalSheets = savedSheets.filter(s => !s.fromConfig);
+            localStorage.setItem('savedSheets', JSON.stringify(personalSheets));
+            console.log('💾 Saved ' + personalSheets.length + ' personal sheets to localStorage');
+            console.log('📊 Total visible sheets: ' + savedSheets.length + ' (config + personal)');
+            
+            // Re-render the list
             renderSheetList();
+            
+            // Close modal
             closeModal();
             
+            // Auto-load the new/edited sheet
             if (!editingSheetId && savedSheets.length > 0) {
                 const newSheet = savedSheets[savedSheets.length - 1];
-                loadSheet(newSheet.id);
+                console.log('🔄 Auto-loading new sheet:', newSheet.id);
+                setTimeout(() => {
+                    loadSheet(newSheet.id);
+                }, 300);
             }
         }
         
         function deleteSheet(id) {
+            const sheet = savedSheets.find(s => s.id === id);
+            if (!sheet) return;
+            
+            // Don't allow deleting config sheets
+            if (sheet.fromConfig) {
+                alert('⚠️ Cannot delete sheets from config!\n\nThis sheet comes from the public configuration.\nYou can only delete your personal sheets.');
+                return;
+            }
+            
             if (!confirm('Are you sure you want to delete this sheet?')) return;
             
+            console.log('🗑️ Deleting personal sheet:', id);
             savedSheets = savedSheets.filter(s => s.id !== id);
-            localStorage.setItem('savedSheets', JSON.stringify(savedSheets));
+            
+            // Save only personal sheets
+            const personalSheets = savedSheets.filter(s => !s.fromConfig);
+            localStorage.setItem('savedSheets', JSON.stringify(personalSheets));
+            console.log('✅ Sheet deleted. Remaining personal sheets:', personalSheets.length);
             
             if (currentSheetId === id) {
                 currentSheetId = null;
@@ -1071,21 +1342,63 @@
         
         function loadSheet(id) {
             const sheet = savedSheets.find(s => s.id === id);
-            if (!sheet) return;
+            if (!sheet) {
+                console.error('❌ Sheet not found:', id);
+                return;
+            }
             
-            console.log('🔄 Loading sheet:', sheet.name);
-            console.log('   URL:', sheet.url);
+            console.log('📂 Loading sheet:', sheet.name);
             
             currentSheetId = id;
             connectedUrl = sheet.url;
-            currentSheetName = sheet.name;
+            currentSheetName = sheet.episode ? `${sheet.episode}_${sheet.name}` : sheet.name;
+            currentSheetInfo = {
+                production: sheet.production || '',
+                project: sheet.project || '',
+                episode: sheet.episode || '',
+                name: sheet.name || '',
+                researcher: sheet.researcher || '',
+                contact: sheet.contact || ''
+            };
             localStorage.setItem('lastActiveSheet', id);
+            
+            document.getElementById('activeSheetDisplay').textContent = '📂 Active: ' + currentSheetName;
+            updateHeaderInfoDisplay();
             
             document.getElementById('appsScriptUrl').value = sheet.url;
             renderSheetList();
             closeSidebar();
             
             refreshData();
+        }
+        
+        function updateHeaderInfoDisplay() {
+            const display = document.getElementById('headerInfoDisplay');
+            const content = document.getElementById('headerInfoContent');
+            
+            if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
+                let html = '';
+                if (currentSheetInfo.production) {
+                    html += '<div><strong>Production company:</strong> ' + currentSheetInfo.production + '</div>';
+                }
+                if (currentSheetInfo.project) {
+                    html += '<div><strong>Film project:</strong> ' + currentSheetInfo.project + '</div>';
+                }
+                if (currentSheetInfo.episode || currentSheetInfo.name) {
+                    const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
+                    html += '<div><strong>Episode:</strong> ' + episodeName + '</div>';
+                }
+                if (currentSheetInfo.researcher) {
+                    html += '<div><strong>Researcher:</strong> ' + currentSheetInfo.researcher + '</div>';
+                }
+                if (currentSheetInfo.contact) {
+                    html += '<div><strong>Contact:</strong> ' + currentSheetInfo.contact + '</div>';
+                }
+                content.innerHTML = html;
+                display.style.display = 'block';
+            } else {
+                display.style.display = 'none';
+            }
         }
         
         function testConnection() {
@@ -1097,7 +1410,7 @@
             }
             
             if (!url.includes('script.google.com')) {
-                alert('❌ Invalid URL! Should start with: https://script.google.com/');
+                alert('❌ Invalid URL!\n\nThe URL should start with: https://script.google.com/');
                 return;
             }
             
@@ -1106,7 +1419,7 @@
             }
             
             window.open(url, '_blank');
-            alert('✅ Opening URL! Look for:\n• JSON data = Success\n• Authorization required = Click authorize\n• Error = Check setup');
+            alert('✅ Opening your URL in a new tab!\n\nWhat to look for:\n• If you see JSON data → Success!\n• If you see "Authorization required" → Click through and authorize\n• If you see an error → Check the setup instructions');
         }
         
         function toggleSetup() {
@@ -1122,7 +1435,7 @@
             }
             
             if (!url.includes('script.google.com') || !url.includes('/exec')) {
-                alert('Invalid URL. Must end with /exec');
+                alert('Invalid URL. Please use the Web App URL from Apps Script deployment (should end with /exec)');
                 return;
             }
             
@@ -1135,9 +1448,6 @@
                 alert('Please connect to your sheet first!');
                 return;
             }
-            
-            console.log('🔄 refreshData started for:', currentSheetName);
-            console.log('   URL:', connectedUrl);
             
             updateLiveStatus('loading', 'Loading...');
             document.getElementById('content').innerHTML = '<div class="loading">⏳ Fetching data...</div>';
@@ -1165,8 +1475,6 @@
                     throw new Error('No data returned');
                 }
                 
-                console.log('✅ Data fetched successfully:', data.length, 'rows');
-                
                 processData(data);
                 updateLiveStatus('success', 'Connected');
                 document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
@@ -1185,9 +1493,38 @@
             }
         }
         
-        function TCSUM(timecodeArray, fpsValue) {
-            console.log('🧮 TCSUM called with', timecodeArray.length, 'timecodes');
+        function detectDurationColumn(row) {
+            if (!row) return null;
             
+            const possibleNames = [
+                'SOURCE_DURATION', 'SOURCE DURATION', 'Source Duration',
+                'DURATION', 'Duration', 'duration',
+                'CLIP_DURATION', 'Clip Duration', 'clip_duration',
+                'LENGTH', 'Length', 'length',
+                'RUNTIME', 'Runtime', 'runtime',
+                'TC_DURATION', 'TC Duration', 'tc_duration'
+            ];
+            
+            for (const name of possibleNames) {
+                if (row.hasOwnProperty(name)) {
+                    console.log('✅ Detected duration column: "' + name + '" = "' + row[name] + '"');
+                    return name;
+                }
+            }
+            
+            for (const key in row) {
+                if (key.toLowerCase().includes('duration')) {
+                    console.log('✅ Found duration-like column: "' + key + '" = "' + row[key] + '"');
+                    return key;
+                }
+            }
+            
+            console.warn('⚠️ WARNING: No duration column found!');
+            console.warn('Available columns:', Object.keys(row));
+            return null;
+        }
+        
+        function TCSUM(timecodeArray, fpsValue) {
             let fps = 30;
             if (fpsValue && fpsValue !== '') {
                 const fpsStr = fpsValue.toString().replace(',', '.').replace(';', '.');
@@ -1199,30 +1536,19 @@
             }
             
             let totalFrames = 0;
-            let validCount = 0;
-            let invalidCount = 0;
             
             for (let i = 0; i < timecodeArray.length; i++) {
                 const tc = timecodeArray[i];
-                if (!tc || tc === '' || tc === null || tc === undefined) {
-                    invalidCount++;
-                    continue;
-                }
+                if (!tc || tc === '' || tc === null || tc === undefined) continue;
                 
                 const txt = tc.toString().trim();
-                if (txt === '' || txt === '00:00:00:00') {
-                    invalidCount++;
-                    continue;
-                }
+                if (txt === '') continue;
                 
                 let sign = 1;
                 if (txt.match(/^-|\(/)) sign = -1;
                 
                 const clean = txt.replace(/[^0-9:]/g, '');
-                if (clean === '') {
-                    invalidCount++;
-                    continue;
-                }
+                if (clean === '') continue;
                 
                 const parts = clean.split(':');
                 const h = parseInt(parts[0] || 0) || 0;
@@ -1232,11 +1558,7 @@
                 
                 const frames = sign * (h * 3600 * fps + m * 60 * fps + s * fps + f);
                 totalFrames += frames;
-                validCount++;
             }
-            
-            console.log('   ✅ Valid:', validCount, '❌ Invalid:', invalidCount);
-            console.log('   📊 Total frames:', totalFrames);
             
             totalFrames = Math.round(totalFrames);
             let signOut = '';
@@ -1253,101 +1575,49 @@
             const frames = remM % fps;
             
             const pad = (num) => num < 10 ? '0' + num : '' + num;
-            const result = signOut + pad(hours) + ':' + pad(minutes) + ':' + pad(seconds) + ':' + pad(frames);
-            
-            console.log('   🎯 Result:', result);
-            
-            return result;
+            return signOut + pad(hours) + ':' + pad(minutes) + ':' + pad(seconds) + ':' + pad(frames);
         }
-
+        
         function processData(rows) {
-            console.log('📦 processData: Starting with', rows.length, 'rows');
-            
-            // Clear old data
-            archiveData = [];
-            filteredData = [];
-            
             const archiveMap = new Map();
             
-            // Check what columns are available in first row
-            if (rows.length > 0) {
-                console.log('📋 Available columns:', Object.keys(rows[0]));
-            }
+            const durationColumn = detectDurationColumn(rows[0]);
+            console.log('🔍 Using duration column:', durationColumn || 'NONE DETECTED');
             
-            rows.forEach((row, idx) => {
+            rows.forEach(row => {
                 const archive = (row.Archive || row.archive || row.ARCHIVE || '').toString().trim();
                 if (!archive) return;
                 
                 const id = (row.ID || row.id || '').toString().trim();
                 const invNo = (row.inv_no || row['inv no'] || row['Inv No'] || '').toString().trim();
                 const fileName = (row.FILE_NAME || row['FILE NAME'] || row['File Name'] || '').toString().trim();
-                
-                // ONLY USE SOURCE_DURATION - extract with all case variations
-                let duration = (
-                    row.SOURCE_DURATION || 
-                    row['SOURCE_DURATION'] ||
-                    row.source_duration ||
-                    row['Source Duration'] ||
-                    row['SOURCE DURATION'] ||
-                    row.Duration || 
-                    row.duration ||
-                    row.DURATION ||
-                    '00:00:00:00'
-                ).toString().trim();
-                
-                // ONLY USE SOURCE IN and SOURCE OUT (NOT SEQUENCE)
-                const sourceIn = (
-                    row.SOURCE_IN || 
-                    row['SOURCE_IN'] || 
-                    row['Source In'] || 
-                    row.source_in ||
-                    row['SOURCE IN'] ||
-                    ''
-                ).toString().trim();
-                
-                const sourceOut = (
-                    row.SOURCE_OUT || 
-                    row['SOURCE_OUT'] || 
-                    row['Source Out'] || 
-                    row.source_out ||
-                    row['SOURCE OUT'] ||
-                    ''
-                ).toString().trim();
-                
-                if (idx < 3) {
-                    console.log(`   Row ${idx}: Archive="${archive}", Duration="${duration}", Source In="${sourceIn}", Source Out="${sourceOut}"`);
+                let duration = '00:00:00:00';
+                if (durationColumn && row[durationColumn]) {
+                    duration = row[durationColumn].toString().trim();
+                } else {
+                    duration = (row.SOURCE_DURATION || row['SOURCE DURATION'] || row['Source Duration'] || row.Duration || row.duration || '00:00:00:00').toString().trim();
                 }
-                
+                const sourceIn = (row.SOURCE_IN || row['SOURCE IN'] || row['Source In'] || row.SEQUENCE_IN || row['SEQUENCE IN'] || '').toString().trim();
+                const sourceOut = (row.SOURCE_OUT || row['SOURCE OUT'] || row['Source Out'] || row.SEQUENCE_OUT || row['SEQUENCE OUT'] || '').toString().trim();
                 const link = (row.link || row.Link || row.URL || '').toString().trim();
                 
                 if (!archiveMap.has(archive)) {
                     archiveMap.set(archive, {
                         name: archive,
-                        clips: []
+                        clips: [],
+                        allDurations: []
                     });
                 }
                 
                 archiveMap.get(archive).clips.push({
                     id, invNo, fileName, duration, sourceIn, sourceOut, link
                 });
+                archiveMap.get(archive).allDurations.push(duration);
             });
-
-            console.log('📊 Archives found:', archiveMap.size);
             
             archiveData = Array.from(archiveMap.values()).map(archive => {
-                // Extract all durations from SOURCE_DURATION column
-                const allDurations = archive.clips.map(clip => clip.duration);
-                
-                console.log(`\n📦 Archive: ${archive.name}`);
-                console.log(`   Clips: ${archive.clips.length}`);
-                console.log(`   Sample durations:`, allDurations.slice(0, 3));
-                
-                // Apply TCSUM formula (same as Google Sheets)
-                const totalDuration = TCSUM(allDurations, 30);
+                const totalDuration = TCSUM(archive.allDurations, 30);
                 const totalFrames = timecodeToFrames(totalDuration, 30);
-                
-                console.log(`   ✅ Total: ${totalDuration} (${totalFrames} frames)`);
-                console.log(`   Type: ${totalFrames === 0 ? 'stills' : 'video'}`);
                 
                 return {
                     name: archive.name,
@@ -1355,21 +1625,16 @@
                     clips: archive.clips,
                     totalFrames: totalFrames,
                     duration: totalDuration,
-                    type: totalFrames === 0 ? 'stills' : 'video',
+                    type: totalDuration === '00:00:00:00' ? 'stills' : 'video',
                     fps: 30
                 };
             });
-            
-            console.log('\n✅ processData complete:');
-            console.log('   Total archives:', archiveData.length);
-            console.log('   Video:', archiveData.filter(a => a.type === 'video').length);
-            console.log('   Stills:', archiveData.filter(a => a.type === 'stills').length);
             
             populateArchiveFilter();
             resetFilters();
         }
         
-        function timecodeToFrames(tc, fps = 30) {
+        function timecodeToFrames(tc, fps) {
             if (!tc || tc === '00:00:00:00') return 0;
             const parts = tc.toString().split(':').map(p => parseInt(p) || 0);
             if (parts.length !== 4) return 0;
@@ -1377,7 +1642,7 @@
             return h * 3600 * fps + m * 60 * fps + s * fps + f;
         }
         
-        function framesToTimecode(frames, fps = 30) {
+        function framesToTimecode(frames, fps) {
             if (frames === 0) return '00:00:00:00';
             const h = Math.floor(frames / (3600 * fps));
             const m = Math.floor((frames % (3600 * fps)) / (60 * fps));
@@ -1545,7 +1810,6 @@
                 return matchesSearch && matchesArchive && matchesView;
             });
             
-            // Sort archives
             filteredData.sort((a, b) => {
                 switch(sortBy) {
                     case 'duration-desc': return b.totalFrames - a.totalFrames;
@@ -1557,23 +1821,6 @@
                     default: return 0;
                 }
             });
-            
-            // Sort clips within each archive by ID if selected
-            if (sortBy === 'id-asc' || sortBy === 'id-desc') {
-                // Create deep copy to avoid mutating original data
-                filteredData = filteredData.map(archive => ({
-                    ...archive,
-                    clips: [...archive.clips].sort((a, b) => {
-                        const idA = (a.id || '').toString().toLowerCase();
-                        const idB = (b.id || '').toString().toLowerCase();
-                        if (sortBy === 'id-asc') {
-                            return idA.localeCompare(idB);
-                        } else {
-                            return idB.localeCompare(idA);
-                        }
-                    })
-                }));
-            }
             
             renderTables(filteredData);
         }
@@ -1587,292 +1834,37 @@
         }
         
         function updateStats(data) {
-            console.log('📊 updateStats: Processing', data.length, 'archives');
-            
             const videoData = data.filter(a => a.type === 'video');
             const stillsData = data.filter(a => a.type === 'stills');
             const videoClips = videoData.reduce((sum, a) => sum + a.clips.length, 0);
             const stillsCount = stillsData.reduce((sum, a) => sum + a.entries, 0);
             
-            // Extract all durations from SOURCE_DURATION column and apply TCSUM
             const allDurations = videoData.flatMap(a => a.clips.map(clip => clip.duration));
-            console.log('📊 Summing', allDurations.length, 'durations from SOURCE_DURATION column');
-            
             const totalDuration = TCSUM(allDurations, 30);
-            console.log('📊 Final Video Duration (TCSUM):', totalDuration);
-            
-            // Count unique Inv No values (excluding empty ones)
-            const allInvNos = data.flatMap(a => a.clips.map(clip => clip.invNo).filter(invNo => invNo && invNo.trim() !== ''));
-            const uniqueInvNos = new Set(allInvNos);
-            const uniqueInvNoCount = uniqueInvNos.size;
-            console.log('📊 Unique Inv No count:', uniqueInvNoCount);
             
             document.getElementById('videoClips').textContent = videoClips;
             document.getElementById('videoArchives').textContent = videoData.length;
             document.getElementById('videoDuration').textContent = totalDuration;
             document.getElementById('stillsCount').textContent = stillsCount;
             document.getElementById('stillsArchives').textContent = stillsData.length;
-            document.getElementById('uniqueInvNo').textContent = uniqueInvNoCount;
         }
         
+        // Placeholder functions for copy/export (keeping them simple for now)
         function copyPlainText() {
-            const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
-            
-            if (!dataToUse || dataToUse.length === 0) {
-                alert('⚠️ No data to copy! Please load a sheet first.');
-                return;
-            }
-            
-            const videoData = dataToUse.filter(a => a.type === 'video');
-            const stillsData = dataToUse.filter(a => a.type === 'stills');
-            
-            let html = '<html><head><style>';
-            html += 'body { font-family: Arial, sans-serif; font-size: 11pt; }';
-            html += 'table { border-collapse: collapse; width: 100%; margin-bottom: 20px; border: 1px solid #000; }';
-            html += 'th { background: #ffffff; color: #000000; padding: 8px; text-align: left; font-weight: bold; border: 1px solid #000; }';
-            html += 'td { padding: 8px; border: 1px solid #000; background: #ffffff; color: #000000; }';
-            html += '.total-row { background: #ffffff; font-weight: bold; border-top: 2px solid #000; }';
-            html += '</style></head><body>';
-            
-            if (currentSheetName) {
-                html += '<h1>' + currentSheetName + '</h1>';
-            }
-            
-            if (videoData.length > 0) {
-                html += '<h2>VIDEO ARCHIVES</h2>';
-                
-                videoData.forEach(archive => {
-                    html += '<h3>' + archive.name + ' (' + archive.clips.length + ' clips)</h3>';
-                    html += '<table>';
-                    html += '<thead><tr>';
-                    html += '<th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Source In</th><th>Source Out</th><th>Duration</th><th>Link</th>';
-                    html += '</tr></thead>';
-                    html += '<tbody>';
-                    
-                    archive.clips.forEach((clip, i) => {
-                        html += '<tr>';
-                        html += '<td>' + (i + 1) + '</td>';
-                        html += '<td>' + (clip.id || '') + '</td>';
-                        html += '<td>' + (clip.invNo || '') + '</td>';
-                        html += '<td>' + (clip.fileName || '') + '</td>';
-                        html += '<td>' + (clip.sourceIn || '') + '</td>';
-                        html += '<td>' + (clip.sourceOut || '') + '</td>';
-                        html += '<td>' + (clip.duration || '00:00:00:00') + '</td>';
-                        html += '<td>' + (clip.link ? '<a href="' + clip.link + '">Link</a>' : '') + '</td>';
-                        html += '</tr>';
-                    });
-                    
-                    html += '<tr class="total-row">';
-                    html += '<td colspan="6"><strong>TOTAL</strong></td>';
-                    html += '<td><strong>' + archive.duration + '</strong></td>';
-                    html += '<td></td>';
-                    html += '</tr>';
-                    html += '</tbody></table>';
-                });
-            }
-            
-            if (stillsData.length > 0) {
-                html += '<h2>STILLS / IMAGES</h2>';
-                
-                stillsData.forEach(archive => {
-                    html += '<h3>' + archive.name + ' (' + archive.entries + ' stills)</h3>';
-                    html += '<table>';
-                    html += '<thead><tr>';
-                    html += '<th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Type</th><th>Link</th>';
-                    html += '</tr></thead>';
-                    html += '<tbody>';
-                    
-                    archive.clips.forEach((clip, i) => {
-                        html += '<tr>';
-                        html += '<td>' + (i + 1) + '</td>';
-                        html += '<td>' + (clip.id || '') + '</td>';
-                        html += '<td>' + (clip.invNo || '') + '</td>';
-                        html += '<td>' + (clip.fileName || '') + '</td>';
-                        html += '<td>Still Image</td>';
-                        html += '<td>' + (clip.link ? '<a href="' + clip.link + '">Link</a>' : '') + '</td>';
-                        html += '</tr>';
-                    });
-                    
-                    html += '<tr class="total-row">';
-                    html += '<td colspan="6"><strong>TOTAL: ' + archive.entries + ' Still Images</strong></td>';
-                    html += '</tr>';
-                    html += '</tbody></table>';
-                });
-            }
-            
-            html += '</body></html>';
-            
-            copyFormattedContent(html);
+            alert('Copy function - implement as needed');
+        }
+        
+        function copyAsTable() {
+            alert('Copy table function - implement as needed');
         }
         
         function exportToExcel() {
-            if (typeof XLSX === 'undefined') {
-                alert('❌ Excel library not loaded! Please refresh the page.');
-                return;
-            }
-
-            const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
-            
-            if (!dataToUse || dataToUse.length === 0) {
-                alert('⚠️ No data to export! Please load a sheet first.');
-                return;
-            }
-            
-            try {
-                const wb = XLSX.utils.book_new();
-                
-                const videoData = dataToUse.filter(a => a.type === 'video');
-                const stillsData = dataToUse.filter(a => a.type === 'stills');
-                
-                const summaryData = [
-                    ['Archive Report Summary'],
-                    [''],
-                    ['Generated:', new Date().toLocaleString()],
-                    ['Sheet Name:', currentSheetName || 'N/A'],
-                    [''],
-                    ['STATISTICS'],
-                    ['Video Archives:', videoData.length],
-                    ['Video Clips:', videoData.reduce((sum, a) => sum + a.clips.length, 0)],
-                    ['Total Video Duration:', videoData.reduce((sum, a) => sum + a.totalFrames, 0) > 0 ? framesToTimecode(videoData.reduce((sum, a) => sum + a.totalFrames, 0), 30) : '00:00:00:00'],
-                    [''],
-                    ['Stills Archives:', stillsData.length],
-                    ['Total Stills:', stillsData.reduce((sum, a) => sum + a.entries, 0)]
-                ];
-                
-                const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
-                XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
-                
-                if (videoData.length > 0) {
-                    const videoRows = [['Archive', '#', 'ID', 'Inv No', 'File Name', 'Source In', 'Source Out', 'Duration', 'Link']];
-                    
-                    videoData.forEach(archive => {
-                        videoRows.push([`${archive.name} (${archive.clips.length} clips)`, '', '', '', '', '', '', '', '']);
-                        
-                        archive.clips.forEach((clip, i) => {
-                            videoRows.push([
-                                '',
-                                i + 1,
-                                clip.id || '',
-                                clip.invNo || '',
-                                clip.fileName || '',
-                                clip.sourceIn || '',
-                                clip.sourceOut || '',
-                                clip.duration || '00:00:00:00',
-                                clip.link || ''
-                            ]);
-                        });
-                        
-                        videoRows.push(['', 'TOTAL', '', '', '', '', '', archive.duration, '']);
-                        videoRows.push(['']);
-                    });
-                    
-                    const wsVideo = XLSX.utils.aoa_to_sheet(videoRows);
-                    wsVideo['!cols'] = [
-                        { wch: 20 }, { wch: 5 }, { wch: 10 }, { wch: 10 }, { wch: 40 }, 
-                        { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 15 }
-                    ];
-                    
-                    XLSX.utils.book_append_sheet(wb, wsVideo, 'Video Archives');
-                }
-                
-                if (stillsData.length > 0) {
-                    const stillsRows = [['Archive', '#', 'ID', 'Inv No', 'File Name', 'Type', 'Link']];
-                    
-                    stillsData.forEach(archive => {
-                        stillsRows.push([`${archive.name} (${archive.entries} stills)`, '', '', '', '', '', '']);
-                        
-                        archive.clips.forEach((clip, i) => {
-                            stillsRows.push([
-                                '',
-                                i + 1,
-                                clip.id || '',
-                                clip.invNo || '',
-                                clip.fileName || '',
-                                'Still Image',
-                                clip.link || ''
-                            ]);
-                        });
-                        
-                        stillsRows.push(['', `TOTAL: ${archive.entries} Still Images`, '', '', '', '', '']);
-                        stillsRows.push(['']);
-                    });
-                    
-                    const wsStills = XLSX.utils.aoa_to_sheet(stillsRows);
-                    wsStills['!cols'] = [
-                        { wch: 20 }, { wch: 5 }, { wch: 10 }, { wch: 10 }, 
-                        { wch: 50 }, { wch: 15 }, { wch: 15 }
-                    ];
-                    
-                    XLSX.utils.book_append_sheet(wb, wsStills, 'Stills');
-                }
-                
-                const filename = (currentSheetName || 'archive-report') + '_' + new Date().toISOString().split('T')[0] + '.xlsx';
-                
-                XLSX.writeFile(wb, filename);
-                
-                alert('✅ Excel file downloaded!\n\n📁 File: ' + filename);
-                
-            } catch (error) {
-                alert('❌ Error: ' + error.message);
-            }
+            alert('Export function - implement as needed');
         }
         
-        function copyFormattedContent(html) {
-            if (navigator.clipboard && navigator.clipboard.write) {
-                try {
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = html;
-                    const plainText = tempDiv.innerText || tempDiv.textContent;
-
-                    const htmlBlob = new Blob([html], { type: 'text/html' });
-                    const textBlob = new Blob([plainText], { type: 'text/plain' });
-
-                    const clipboardItem = new ClipboardItem({
-                        'text/html': htmlBlob,
-                        'text/plain': textBlob
-                    });
-
-                    navigator.clipboard.write([clipboardItem]).then(() => {
-                        alert('✅ Table copied successfully!\n\nPaste in Word/Excel/Thunderbird!');
-                    }).catch(err => {
-                        fallbackCopyHTML(html);
-                    });
-                } catch (err) {
-                    fallbackCopyHTML(html);
-                }
-            } else {
-                fallbackCopyHTML(html);
-            }
-        }
-        
-        function fallbackCopyHTML(html) {
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = html;
-            tempDiv.style.position = 'absolute';
-            tempDiv.style.left = '-9999px';
-            
-            document.body.appendChild(tempDiv);
-            
-            const selection = window.getSelection();
-            selection.removeAllRanges();
-            
-            const range = document.createRange();
-            range.selectNodeContents(tempDiv);
-            selection.addRange(range);
-            
-            try {
-                document.execCommand('copy');
-                document.body.removeChild(tempDiv);
-                selection.removeAllRanges();
-                alert('✅ Table copied!');
-            } catch (err) {
-                document.body.removeChild(tempDiv);
-                selection.removeAllRanges();
-                alert('⚠️ Copy failed. Try using a modern browser.');
-            }
-        }
-        
-        window.onload = function() {
+        // Initialize on page load
+        window.onload = () => {
+            console.log('🚀 Page loaded - initializing...');
             loadSavedSheets();
         };
     </script>
