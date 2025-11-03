@@ -540,6 +540,16 @@
             background: #dee2e6;
         }
         
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        }
+        
         .section-divider {
             background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
             color: white;
@@ -693,6 +703,9 @@
             }
         }
     </style>
+    <!-- SheetJS Library for Excel Export with Fallback -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" 
+            onerror="this.onerror=null; this.src='https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'"></script>
 </head>
 <body>
     <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
@@ -907,9 +920,10 @@
             <div class="button-group">
                 <button class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
                 <button class="btn btn-secondary" onclick="resetFilters()">Reset All</button>
+                <button class="btn btn-success" onclick="copyPlainText()">📋 Copy as Table</button>
+                <button class="btn btn-success" onclick="copyAsTable()">📊 Copy with Summary</button>
+                <button class="btn btn-success" onclick="exportToExcel()">📥 Export to Excel</button>
                 <button class="btn btn-secondary" onclick="window.print()">🖨️ Print</button>
-                <button class="btn btn-secondary" onclick="copyToClipboard()">📋 Copy</button>
-                <button class="btn btn-secondary" onclick="downloadAsExcel()">📊 Excel</button>
             </div>
         </div>
         
@@ -1424,96 +1438,471 @@
         }
         
         
-        function copyToClipboard() {
-            if (filteredData.length === 0) {
-                alert('No data to copy. Please load data first.');
+        function copyPlainText() {
+            const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
+            
+            if (!dataToUse || dataToUse.length === 0) {
+                alert('⚠️ No data to copy!\n\nPlease load a sheet first.');
                 return;
             }
             
-            let text = 'ARCHIVE REPORT\n\n';
+            const videoData = dataToUse.filter(a => a.type === 'video');
+            const stillsData = dataToUse.filter(a => a.type === 'stills');
             
-            const videoData = filteredData.filter(a => a.type === 'video');
-            const stillsData = filteredData.filter(a => a.type === 'stills');
+            // PLAIN TABLE - NO COLORS, NO GRADIENTS
+            let html = '<html><head><style>';
+            html += 'body { font-family: Arial, sans-serif; font-size: 11pt; }';
+            html += 'table { border-collapse: collapse; width: 100%; margin-bottom: 20px; border: 1px solid #000; }';
+            html += 'th { background: #ffffff; color: #000000; padding: 8px; text-align: left; font-weight: bold; border: 1px solid #000; }';
+            html += 'td { padding: 8px; border: 1px solid #000; background: #ffffff; color: #000000; }';
+            html += '.main-title { font-size: 14pt; font-weight: bold; color: #000000; margin-bottom: 15px; text-align: center; }';
+            html += '.archive-name { font-weight: bold; margin-top: 15px; margin-bottom: 5px; font-size: 11pt; color: #000000; }';
+            html += '.total-row { background: #ffffff; font-weight: bold; border-top: 2px solid #000; }';
+            html += '.section-title { font-weight: bold; font-size: 12pt; margin: 15px 0 8px 0; color: #000000; }';
+            html += '.info-table { border: 1px solid #000; margin-bottom: 20px; }';
+            html += '.info-label { font-weight: bold; width: 180px; background: #ffffff; border: 1px solid #000; padding: 6px; }';
+            html += '.info-value { background: #ffffff; border: 1px solid #000; padding: 6px; }';
+            html += 'a { color: #0066cc; text-decoration: none; }';
+            html += '<\/style><\/head><body>';
             
+            // Title
+            if (currentSheetName) {
+                html += '<div class="main-title">' + currentSheetName + '</div>';
+            }
+            
+            // Sheet Information - PLAIN TABLE
+            if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
+                html += '<table class="info-table">';
+                html += '<thead><tr><th colspan="2">Sheet Information</th></tr></thead>';
+                html += '<tbody>';
+                
+                if (currentSheetInfo.production) {
+                    html += '<tr><td class="info-label">Production company:</td>';
+                    html += '<td class="info-value">' + currentSheetInfo.production + '</td></tr>';
+                }
+                if (currentSheetInfo.project) {
+                    html += '<tr><td class="info-label">Film project:</td>';
+                    html += '<td class="info-value">' + currentSheetInfo.project + '</td></tr>';
+                }
+                if (currentSheetInfo.episode || currentSheetInfo.name) {
+                    const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
+                    html += '<tr><td class="info-label">Episode:</td>';
+                    html += '<td class="info-value">' + episodeName + '</td></tr>';
+                }
+                if (currentSheetInfo.researcher) {
+                    html += '<tr><td class="info-label">Researcher:</td>';
+                    html += '<td class="info-value">' + currentSheetInfo.researcher + '</td></tr>';
+                }
+                if (currentSheetInfo.contact) {
+                    html += '<tr><td class="info-label">Contact:</td>';
+                    html += '<td class="info-value">' + currentSheetInfo.contact + '</td></tr>';
+                }
+                html += '</tbody></table>';
+            }
+            
+            // Video Archives
             if (videoData.length > 0) {
-                text += '=== VIDEO CLIPS ===\n\n';
+                html += '<div class="section-title">VIDEO ARCHIVES</div>';
+                
                 videoData.forEach(archive => {
-                    text += `Archive: ${archive.name} (${archive.clips.length} clips)\n`;
-                    text += 'ID\tInv No\tFile Name\tSource In\tSource Out\tDuration\n';
+                    html += '<div class="archive-name">' + archive.name + ' (' + archive.clips.length + ' clips)</div>';
+                    html += '<table>';
+                    html += '<thead><tr>';
+                    html += '<th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Source In</th><th>Source Out</th><th>Duration</th><th>Link</th>';
+                    html += '</tr></thead>';
+                    html += '<tbody>';
+                    
                     archive.clips.forEach((clip, i) => {
-                        text += `${clip.id || '—'}\t${clip.invNo || '—'}\t${clip.fileName || '—'}\t${clip.sourceIn || '—'}\t${clip.sourceOut || '—'}\t${clip.duration}\n`;
+                        html += '<tr>';
+                        html += '<td>' + (i + 1) + '</td>';
+                        html += '<td>' + (clip.id || '') + '</td>';
+                        html += '<td>' + (clip.invNo || '') + '</td>';
+                        html += '<td>' + (clip.fileName || '') + '</td>';
+                        html += '<td>' + (clip.sourceIn || '') + '</td>';
+                        html += '<td>' + (clip.sourceOut || '') + '</td>';
+                        html += '<td>' + (clip.duration || '00:00:00:00') + '</td>';
+                        html += '<td>' + (clip.link ? '<a href="' + clip.link + '">Link</a>' : '') + '</td>';
+                        html += '</tr>';
                     });
-                    text += `TOTAL: ${archive.duration}\n\n`;
+                    
+                    html += '<tr class="total-row">';
+                    html += '<td colspan="6"><strong>TOTAL</strong></td>';
+                    html += '<td><strong>' + archive.duration + '</strong></td>';
+                    html += '<td></td>';
+                    html += '</tr>';
+                    html += '</tbody></table>';
                 });
             }
             
+            // Stills Archives
             if (stillsData.length > 0) {
-                text += '\n=== STILLS / IMAGES ===\n\n';
+                html += '<div class="section-title">STILLS / IMAGES</div>';
+                
                 stillsData.forEach(archive => {
-                    text += `Archive: ${archive.name} (${archive.entries} stills)\n`;
-                    text += 'ID\tInv No\tFile Name\tType\n';
+                    html += '<div class="archive-name">' + archive.name + ' (' + archive.entries + ' stills)</div>';
+                    html += '<table>';
+                    html += '<thead><tr>';
+                    html += '<th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Type</th><th>Link</th>';
+                    html += '</tr></thead>';
+                    html += '<tbody>';
+                    
                     archive.clips.forEach((clip, i) => {
-                        text += `${clip.id || '—'}\t${clip.invNo || '—'}\t${clip.fileName || '—'}\tStill Image\n`;
+                        html += '<tr>';
+                        html += '<td>' + (i + 1) + '</td>';
+                        html += '<td>' + (clip.id || '') + '</td>';
+                        html += '<td>' + (clip.invNo || '') + '</td>';
+                        html += '<td>' + (clip.fileName || '') + '</td>';
+                        html += '<td>Still Image</td>';
+                        html += '<td>' + (clip.link ? '<a href="' + clip.link + '">Link</a>' : '') + '</td>';
+                        html += '</tr>';
                     });
-                    text += `TOTAL: ${archive.entries} Still Images\n\n`;
+                    
+                    html += '<tr class="total-row">';
+                    html += '<td colspan="6"><strong>TOTAL: ' + archive.entries + ' Still Images</strong></td>';
+                    html += '</tr>';
+                    html += '</tbody></table>';
                 });
             }
             
-            navigator.clipboard.writeText(text).then(() => {
-                alert('✅ Report copied to clipboard!');
-            }).catch(err => {
-                alert('❌ Failed to copy: ' + err);
-            });
+            html += '<\/body><\/html>';
+            
+            copyFormattedContent(html);
         }
         
-        function downloadAsExcel() {
-            if (filteredData.length === 0) {
-                alert('No data to export. Please load data first.');
+        function copyAsTable() {
+            const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
+            
+            if (!dataToUse || dataToUse.length === 0) {
+                alert('⚠️ No data to copy!\n\nPlease load a sheet first.');
                 return;
             }
             
-            let csv = '';
+            const videoData = dataToUse.filter(a => a.type === 'video');
+            const stillsData = dataToUse.filter(a => a.type === 'stills');
+            const videoClips = videoData.reduce((sum, a) => sum + a.clips.length, 0);
+            const stillsCount = stillsData.reduce((sum, a) => sum + a.entries, 0);
+            const totalFrames = videoData.reduce((sum, a) => sum + a.totalFrames, 0);
+            const videoDuration = framesToTimecode(totalFrames);
             
-            const videoData = filteredData.filter(a => a.type === 'video');
-            const stillsData = filteredData.filter(a => a.type === 'stills');
+            let html = '<html><head><style>';
+            html += 'body { font-family: Arial, sans-serif; }';
+            html += 'table { border-collapse: collapse; width: 100%; margin-bottom: 30px; }';
+            html += 'th { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px; text-align: left; font-weight: bold; border: 1px solid #ddd; }';
+            html += 'td { padding: 10px; border: 1px solid #ddd; }';
+            html += 'tr:nth-child(even) { background-color: #f8f9fa; }';
+            html += 'tr:hover { background-color: #e9ecef; }';
+            html += '.total-row { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; font-weight: bold; }';
+            html += '.total-row.stills { background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); }';
+            html += '.archive-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; margin-top: 20px; font-size: 1.2em; font-weight: bold; border-radius: 8px 8px 0 0; }';
+            html += '.archive-header.stills { background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); }';
+            html += '.section-title { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; font-size: 1.5em; font-weight: bold; margin: 30px 0 20px 0; border-radius: 8px; }';
+            html += '.section-title.stills { background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); }';
+            html += '.main-title { font-size: 24pt; font-weight: bold; color: white; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin-bottom: 30px; padding: 25px; border-radius: 12px; text-align: center; }';
+            html += '.summary { background: #f8f9fa; padding: 20px; margin-bottom: 30px; border-radius: 8px; border: 2px solid #667eea; }';
+            html += '.summary h2 { color: #667eea; margin-bottom: 15px; }';
+            html += '.summary-row { display: flex; justify-content: space-between; margin: 10px 0; }';
+            html += '.summary-label { font-weight: bold; color: #495057; }';
+            html += '.summary-value { color: #667eea; font-weight: bold; }';
+            html += 'a { color: #667eea; text-decoration: none; }';
+            html += '<\/style><\/head><body>';
+            
+            if (currentSheetName) {
+                html += '<div class="main-title">📽️ ' + currentSheetName + '</div>';
+            }
+            
+            if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.researcher) {
+                html += '<table style="width: 100%; margin-bottom: 20px; border: 2px solid #667eea; background: #f8f9fa;">';
+                html += '<tr style="background: #667eea;"><td colspan="2" style="padding: 12px; color: white; font-weight: bold; font-size: 14pt;">Sheet Information</td></tr>';
+                
+                if (currentSheetInfo.production) {
+                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; width: 200px; border: 1px solid #dee;">Production company:</td>';
+                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.production + '</td></tr>';
+                }
+                if (currentSheetInfo.project) {
+                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Film project:</td>';
+                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.project + '</td></tr>';
+                }
+                if (currentSheetInfo.episode || currentSheetInfo.name) {
+                    const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
+                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Episode:</td>';
+                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + episodeName + '</td></tr>';
+                }
+                if (currentSheetInfo.researcher) {
+                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Researcher:</td>';
+                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.researcher + '</td></tr>';
+                }
+                if (currentSheetInfo.contact) {
+                    html += '<tr><td style="padding: 10px; font-weight: bold; color: #667eea; border: 1px solid #dee;">Contact:</td>';
+                    html += '<td style="padding: 10px; border: 1px solid #dee;">' + currentSheetInfo.contact + '</td></tr>';
+                }
+                html += '</table>';
+            }
+            
+            html += '<div class="summary">';
+            html += '<h2>📊 ARCHIVE REPORT SUMMARY</h2>';
+            html += '<div class="summary-row"><span class="summary-label">Video Clips:</span><span class="summary-value">' + videoClips + '</span></div>';
+            html += '<div class="summary-row"><span class="summary-label">Video Archives:</span><span class="summary-value">' + videoData.length + '</span></div>';
+            html += '<div class="summary-row"><span class="summary-label">Total Duration:</span><span class="summary-value">' + videoDuration + '</span></div>';
+            html += '<div class="summary-row"><span class="summary-label">Still Images:</span><span class="summary-value">' + stillsCount + '</span></div>';
+            html += '<div class="summary-row"><span class="summary-label">Stills Archives:</span><span class="summary-value">' + stillsData.length + '</span></div>';
+            html += '</div>';
             
             if (videoData.length > 0) {
-                csv += 'VIDEO CLIPS\n\n';
+                html += '<div class="section-title">🎬 VIDEO ARCHIVES</div>';
+                
                 videoData.forEach(archive => {
-                    csv += `Archive,${archive.name},Clips,${archive.clips.length}\n`;
-                    csv += '#,ID,Inv No,File Name,Source In,Source Out,Duration,Link\n';
+                    html += '<div class="archive-header">' + archive.name + ' (' + archive.clips.length + ' clips)</div>';
+                    html += '<table>';
+                    html += '<thead><tr>';
+                    html += '<th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Source In</th><th>Source Out</th><th>Duration</th><th>Link</th>';
+                    html += '</tr></thead>';
+                    html += '<tbody>';
+                    
                     archive.clips.forEach((clip, i) => {
-                        csv += `${i + 1},"${clip.id || ''}","${clip.invNo || ''}","${clip.fileName || ''}","${clip.sourceIn || ''}","${clip.sourceOut || ''}","${clip.duration}","${clip.link || ''}"\n`;
+                        html += '<tr>';
+                        html += '<td>' + (i + 1) + '</td>';
+                        html += '<td>' + (clip.id || '') + '</td>';
+                        html += '<td>' + (clip.invNo || '') + '</td>';
+                        html += '<td>' + (clip.fileName || '') + '</td>';
+                        html += '<td>' + (clip.sourceIn || '') + '</td>';
+                        html += '<td>' + (clip.sourceOut || '') + '</td>';
+                        html += '<td>' + (clip.duration || '00:00:00:00') + '</td>';
+                        html += '<td>' + (clip.link ? '<a href="' + clip.link + '">🔗</a>' : '') + '</td>';
+                        html += '</tr>';
                     });
-                    csv += `TOTAL,,,,,,${archive.duration},\n\n`;
+                    
+                    html += '<tr class="total-row">';
+                    html += '<td colspan="6"><strong>TOTAL</strong></td>';
+                    html += '<td><strong>' + archive.duration + '</strong></td>';
+                    html += '<td></td>';
+                    html += '</tr>';
+                    html += '</tbody></table>';
                 });
             }
             
             if (stillsData.length > 0) {
-                csv += '\nSTILLS / IMAGES\n\n';
+                html += '<div class="section-title stills">📷 STILLS / IMAGES</div>';
+                
                 stillsData.forEach(archive => {
-                    csv += `Archive,${archive.name},Stills,${archive.entries}\n`;
-                    csv += '#,ID,Inv No,File Name,Type,Link\n';
+                    html += '<div class="archive-header stills">' + archive.name + ' (' + archive.entries + ' stills)</div>';
+                    html += '<table>';
+                    html += '<thead><tr>';
+                    html += '<th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Type</th><th>Link</th>';
+                    html += '</tr></thead>';
+                    html += '<tbody>';
+                    
                     archive.clips.forEach((clip, i) => {
-                        csv += `${i + 1},"${clip.id || ''}","${clip.invNo || ''}","${clip.fileName || ''}",Still Image,"${clip.link || ''}"\n`;
+                        html += '<tr>';
+                        html += '<td>' + (i + 1) + '</td>';
+                        html += '<td>' + (clip.id || '') + '</td>';
+                        html += '<td>' + (clip.invNo || '') + '</td>';
+                        html += '<td>' + (clip.fileName || '') + '</td>';
+                        html += '<td>Still Image</td>';
+                        html += '<td>' + (clip.link ? '<a href="' + clip.link + '">🔗</a>' : '') + '</td>';
+                        html += '</tr>';
                     });
-                    csv += `TOTAL: ${archive.entries} Still Images\n\n`;
+                    
+                    html += '<tr class="total-row stills">';
+                    html += '<td colspan="6"><strong>TOTAL: ' + archive.entries + ' Still Images</strong></td>';
+                    html += '</tr>';
+                    html += '</tbody></table>';
                 });
             }
             
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            const url = URL.createObjectURL(blob);
-            const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+            html += '<\/body><\/html>';
             
-            link.setAttribute('href', url);
-            link.setAttribute('download', `Archive_Report_${timestamp}.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            copyFormattedContent(html);
+        }
+        
+        function exportToExcel() {
+            if (typeof XLSX === 'undefined') {
+                alert('❌ Excel library not loaded!\n\nРешение: Рефрешни страницата.');
+                return;
+            }
+
+            const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
             
-            alert('✅ Excel file downloaded!');
+            if (!dataToUse || dataToUse.length === 0) {
+                alert('⚠️ No data to export!\n\nPlease load a sheet first.');
+                return;
+            }
+            
+            try {
+                const wb = XLSX.utils.book_new();
+                
+                const videoData = dataToUse.filter(a => a.type === 'video');
+                const stillsData = dataToUse.filter(a => a.type === 'stills');
+                
+                // Summary Sheet
+                const summaryData = [
+                    ['Archive Report Summary'],
+                    [''],
+                    ['Generated:', new Date().toLocaleString()],
+                    ['Sheet Name:', currentSheetName || 'N/A']
+                ];
+                
+                if (currentSheetInfo.production || currentSheetInfo.project) {
+                    summaryData.push(['']);
+                    summaryData.push(['SHEET INFORMATION']);
+                    if (currentSheetInfo.production) summaryData.push(['Production company:', currentSheetInfo.production]);
+                    if (currentSheetInfo.project) summaryData.push(['Film project:', currentSheetInfo.project]);
+                    if (currentSheetInfo.episode || currentSheetInfo.name) {
+                        const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
+                        summaryData.push(['Episode:', episodeName]);
+                    }
+                    if (currentSheetInfo.researcher) summaryData.push(['Researcher:', currentSheetInfo.researcher]);
+                    if (currentSheetInfo.contact) summaryData.push(['Contact:', currentSheetInfo.contact]);
+                }
+                
+                summaryData.push(['']);
+                summaryData.push(['STATISTICS']);
+                summaryData.push(['Video Archives:', videoData.length]);
+                summaryData.push(['Video Clips:', videoData.reduce((sum, a) => sum + a.clips.length, 0)]);
+                summaryData.push(['Total Video Duration:', videoData.reduce((sum, a) => sum + a.totalFrames, 0) > 0 ? framesToTimecode(videoData.reduce((sum, a) => sum + a.totalFrames, 0), 30) : '00:00:00:00']);
+                summaryData.push(['']);
+                summaryData.push(['Stills Archives:', stillsData.length]);
+                summaryData.push(['Total Stills:', stillsData.reduce((sum, a) => sum + a.entries, 0)]);
+                
+                const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+                XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+                
+                // Video Archives Sheet
+                if (videoData.length > 0) {
+                    const videoRows = [['Archive', '#', 'ID', 'Inv No', 'File Name', 'Source In', 'Source Out', 'Duration', 'Link']];
+                    
+                    videoData.forEach(archive => {
+                        videoRows.push([`${archive.name} (${archive.clips.length} clips)`, '', '', '', '', '', '', '', '']);
+                        
+                        archive.clips.forEach((clip, i) => {
+                            videoRows.push([
+                                '',
+                                i + 1,
+                                clip.id || '',
+                                clip.invNo || '',
+                                clip.fileName || '',
+                                clip.sourceIn || '',
+                                clip.sourceOut || '',
+                                clip.duration || '00:00:00:00',
+                                clip.link || ''
+                            ]);
+                        });
+                        
+                        videoRows.push(['', 'TOTAL', '', '', '', '', '', archive.duration, '']);
+                        videoRows.push(['']);
+                    });
+                    
+                    const wsVideo = XLSX.utils.aoa_to_sheet(videoRows);
+                    wsVideo['!cols'] = [
+                        { wch: 20 }, { wch: 5 }, { wch: 10 }, { wch: 10 }, { wch: 40 }, 
+                        { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 15 }
+                    ];
+                    
+                    XLSX.utils.book_append_sheet(wb, wsVideo, 'Video Archives');
+                }
+                
+                // Stills Sheet
+                if (stillsData.length > 0) {
+                    const stillsRows = [['Archive', '#', 'ID', 'Inv No', 'File Name', 'Type', 'Link']];
+                    
+                    stillsData.forEach(archive => {
+                        stillsRows.push([`${archive.name} (${archive.entries} stills)`, '', '', '', '', '', '']);
+                        
+                        archive.clips.forEach((clip, i) => {
+                            stillsRows.push([
+                                '',
+                                i + 1,
+                                clip.id || '',
+                                clip.invNo || '',
+                                clip.fileName || '',
+                                'Still Image',
+                                clip.link || ''
+                            ]);
+                        });
+                        
+                        stillsRows.push(['', `TOTAL: ${archive.entries} Still Images`, '', '', '', '', '']);
+                        stillsRows.push(['']);
+                    });
+                    
+                    const wsStills = XLSX.utils.aoa_to_sheet(stillsRows);
+                    wsStills['!cols'] = [
+                        { wch: 20 }, { wch: 5 }, { wch: 10 }, { wch: 10 }, 
+                        { wch: 50 }, { wch: 15 }, { wch: 15 }
+                    ];
+                    
+                    XLSX.utils.book_append_sheet(wb, wsStills, 'Stills');
+                }
+                
+                const filename = (currentSheetName || 'archive-report') + '_' + new Date().toISOString().split('T')[0] + '.xlsx';
+                
+                XLSX.writeFile(wb, filename);
+                
+                alert('✅ Excel file downloaded!\n\n📁 File: ' + filename);
+                
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+            }
+        }
+        
+        function copyFormattedContent(html) {
+            if (navigator.clipboard && navigator.clipboard.write) {
+                try {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = html;
+                    const plainText = tempDiv.innerText || tempDiv.textContent;
+
+                    const htmlBlob = new Blob([html], { type: 'text/html' });
+                    const textBlob = new Blob([plainText], { type: 'text/plain' });
+
+                    const clipboardItem = new ClipboardItem({
+                        'text/html': htmlBlob,
+                        'text/plain': textBlob
+                    });
+
+                    navigator.clipboard.write([clipboardItem]).then(() => {
+                        alert('✅ Table copied successfully!\n\nPaste in Word/Excel/Thunderbird!');
+                    }).catch(err => {
+                        fallbackCopyHTML(html);
+                    });
+                } catch (err) {
+                    fallbackCopyHTML(html);
+                }
+            } else {
+                fallbackCopyHTML(html);
+            }
+        }
+        
+        function fallbackCopyHTML(html) {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            tempDiv.style.position = 'absolute';
+            tempDiv.style.left = '-9999px';
+            tempDiv.style.top = '-9999px';
+            tempDiv.style.opacity = '0';
+            
+            document.body.appendChild(tempDiv);
+            
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            
+            const range = document.createRange();
+            range.selectNodeContents(tempDiv);
+            selection.addRange(range);
+            
+            try {
+                const successful = document.execCommand('copy');
+                document.body.removeChild(tempDiv);
+                selection.removeAllRanges();
+                
+                if (successful) {
+                    alert('✅ Table copied!');
+                } else {
+                    throw new Error('Copy failed');
+                }
+            } catch (err) {
+                document.body.removeChild(tempDiv);
+                selection.removeAllRanges();
+                alert('⚠️ Copy failed. Try using a modern browser.');
+            }
         }
         window.onload = function() {
             loadSavedSheets();
