@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Archive Footage Database - Live</title>
+    <title>Archive Footage Database - Live (v1762161085)</title>
     <style>
         * {
             margin: 0;
@@ -708,6 +708,7 @@
             onerror="this.onerror=null; this.src='https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js'"></script>
 </head>
 <body>
+    <!-- VERSION 1762161085 - TCSUM ENABLED - If you see this, the new file is loaded! -->
     <div class="overlay" id="overlay" onclick="closeSidebar()"></div>
     
     <!-- Sidebar -->
@@ -1183,6 +1184,7 @@
                 
         // ⭐ TCSUM Function - same as Google Sheets Named Function
         function TCSUM(timecodeArray, fpsValue) {
+            console.log('🔥 TCSUM CALLED with', timecodeArray.length, 'timecodes, fps =', fpsValue);
             let fps = 30;
             if (fpsValue && fpsValue !== '') {
                 const fpsStr = fpsValue.toString().replace(',', '.').replace(';', '.');
@@ -1233,7 +1235,9 @@
             const frames = remM % fps;
             
             const pad = (num) => num < 10 ? '0' + num : '' + num;
-            return signOut + pad(hours) + ':' + pad(minutes) + ':' + pad(seconds) + ':' + pad(frames);
+            const result = signOut + pad(hours) + ':' + pad(minutes) + ':' + pad(seconds) + ':' + pad(frames);
+            console.log('🔥 TCSUM RESULT:', result, '(from', totalFrames, 'frames)');
+            return result;
         }
 
         function processData(rows) {
@@ -1576,7 +1580,8 @@
             html += '.info-label { font-weight: bold; width: 180px; background: #ffffff; border: 1px solid #000; padding: 6px; }';
             html += '.info-value { background: #ffffff; border: 1px solid #000; padding: 6px; }';
             html += 'a { color: #0066cc; text-decoration: none; }';
-            html += '<\/style><\/head><body>';
+            html += '<\/style><\/head><body>
+    <!-- VERSION 1762161085 - TCSUM ENABLED - If you see this, the new file is loaded! -->';
             
             // Title
             if (currentSheetName) {
@@ -1717,7 +1722,8 @@
             html += '.summary-label { font-weight: bold; color: #495057; }';
             html += '.summary-value { color: #667eea; font-weight: bold; }';
             html += 'a { color: #667eea; text-decoration: none; }';
-            html += '<\/style><\/head><body>';
+            html += '<\/style><\/head><body>
+    <!-- VERSION 1762161085 - TCSUM ENABLED - If you see this, the new file is loaded! -->';
             
             if (currentSheetName) {
                 html += '<div class="main-title">📽️ ' + currentSheetName + '</div>';
