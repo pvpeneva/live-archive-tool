@@ -880,6 +880,8 @@
                     <option value="name-desc">Archive Name (Z-A)</option>
                     <option value="clips-desc">Clip Count (Most First)</option>
                     <option value="clips-asc">Clip Count (Least First)</option>
+                    <option value="id-asc">ID (A-Z) - within archives</option>
+                    <option value="id-desc">ID (Z-A) - within archives</option>
                 </select>
             </div>
             
@@ -1539,6 +1541,7 @@
                 return matchesSearch && matchesArchive && matchesView;
             });
             
+            // Sort archives
             filteredData.sort((a, b) => {
                 switch(sortBy) {
                     case 'duration-desc': return b.totalFrames - a.totalFrames;
@@ -1550,6 +1553,23 @@
                     default: return 0;
                 }
             });
+            
+            // Sort clips within each archive by ID if selected
+            if (sortBy === 'id-asc' || sortBy === 'id-desc') {
+                // Create deep copy to avoid mutating original data
+                filteredData = filteredData.map(archive => ({
+                    ...archive,
+                    clips: [...archive.clips].sort((a, b) => {
+                        const idA = (a.id || '').toString().toLowerCase();
+                        const idB = (b.id || '').toString().toLowerCase();
+                        if (sortBy === 'id-asc') {
+                            return idA.localeCompare(idB);
+                        } else {
+                            return idB.localeCompare(idA);
+                        }
+                    })
+                }));
+            }
             
             renderTables(filteredData);
         }
