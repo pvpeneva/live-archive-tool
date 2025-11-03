@@ -1187,11 +1187,13 @@
             // Debug first row
             if (rows.length > 0) {
                 console.log('First row columns:', Object.keys(rows[0]));
-                console.log('Sample duration values from first 10 rows:');
+                console.log('Sample values from first 10 rows:');
                 rows.slice(0, Math.min(10, rows.length)).forEach((row, i) => {
-                    const dur = (row.SOURCE_DURATION || row['SOURCE DURATION'] || row['Source Duration'] || row.Duration || '00:00:00:00').toString().trim();
                     const arch = (row.Archive || row.archive || '').toString().trim();
-                    console.log(`  Row ${i}: Archive="${arch}", Duration="${dur}"`);
+                    const durCol = (row.SOURCE_DURATION || row['SOURCE DURATION'] || row['Source Duration'] || row.Duration || '00:00:00:00').toString().trim();
+                    const srcIn = (row.SOURCE_IN || row['SOURCE IN'] || row['Source In'] || '').toString().trim();
+                    const srcOut = (row.SOURCE_OUT || row['SOURCE OUT'] || row['Source Out'] || '').toString().trim();
+                    console.log(`  Row ${i}: Archive="${arch}", Duration="${durCol}", Source In="${srcIn}", Source Out="${srcOut}"`);
                 });
             }
             
@@ -1204,9 +1206,29 @@
                 const id = (row.ID || row.id || '').toString().trim();
                 const invNo = (row.inv_no || row['inv no'] || row['Inv No'] || '').toString().trim();
                 const fileName = (row.FILE_NAME || row['FILE NAME'] || row['File Name'] || '').toString().trim();
-                const duration = (row.SOURCE_DURATION || row['SOURCE DURATION'] || row['Source Duration'] || row.Duration || '00:00:00:00').toString().trim();
+                
+                // Get duration from column
+                let duration = (row.SOURCE_DURATION || row['SOURCE DURATION'] || row['Source Duration'] || row.Duration || '00:00:00:00').toString().trim();
+                
+                // Get Source In and Out
                 const sourceIn = (row.SOURCE_IN || row['SOURCE IN'] || row['Source In'] || row.source_in || '').toString().trim();
                 const sourceOut = (row.SOURCE_OUT || row['SOURCE OUT'] || row['Source Out'] || row.source_out || '').toString().trim();
+                
+                // ⭐ IF DURATION IS EMPTY OR 00:00:00:00, CALCULATE FROM SOURCE IN/OUT
+                if (!duration || duration === '' || duration === '00:00:00:00') {
+                    if (sourceIn && sourceOut && sourceIn !== '' && sourceOut !== '') {
+                        // Calculate duration from Source In and Source Out
+                        const inFrames = timecodeToFrames(sourceIn, 30);
+                        const outFrames = timecodeToFrames(sourceOut, 30);
+                        const durationFrames = outFrames - inFrames;
+                        
+                        if (durationFrames > 0) {
+                            duration = framesToTimecode(durationFrames, 30);
+                            console.log(`  ✅ Calculated duration for ${archive}: ${sourceIn} to ${sourceOut} = ${duration}`);
+                        }
+                    }
+                }
+                
                 const link = (row.link || row.Link || row.URL || '').toString().trim();
                 
                 if (!archiveMap.has(archive)) {
@@ -1223,18 +1245,19 @@
             });
             
             archiveData = Array.from(archiveMap.values()).map(archive => {
-                const totalFrames = archive.clips.reduce((sum, clip) => sum + timecodeToFrames(clip.duration), 0);
+                const totalFrames = archive.clips.reduce((sum, clip) => sum + timecodeToFrames(clip.duration, 30), 0);
                 const type = totalFrames === 0 ? 'stills' : 'video';
                 
-                console.log(`📦 Archive "${archive.name}": ${archive.clips.length} clips, ${totalFrames} frames (${framesToTimecode(totalFrames)}), type=${type}`);
+                console.log(`📦 Archive "${archive.name}": ${archive.clips.length} clips, ${totalFrames} frames (${framesToTimecode(totalFrames, 30)}), type=${type}`);
                 
                 return {
                     name: archive.name,
                     entries: archive.clips.length,
                     clips: archive.clips,
                     totalFrames: totalFrames,
-                    duration: framesToTimecode(totalFrames),
-                    type: type
+                    duration: framesToTimecode(totalFrames, 30),
+                    type: type,
+                    fps: 30
                 };
             });
             
@@ -1251,20 +1274,20 @@
         }
 
         
-        function timecodeToFrames(tc) {
+        function timecodeToFrames(tc, fps = 30) {
             if (!tc || tc === '00:00:00:00') return 0;
             const parts = tc.toString().split(':').map(p => parseInt(p) || 0);
             if (parts.length !== 4) return 0;
             const [h, m, s, f] = parts;
-            return h * 3600 * 30 + m * 60 * 30 + s * 30 + f;
+            return h * 3600 * fps + m * 60 * fps + s * fps + f;
         }
         
-        function framesToTimecode(frames) {
+        function framesToTimecode(frames, fps = 30) {
             if (frames === 0) return '00:00:00:00';
-            const h = Math.floor(frames / (3600 * 30));
-            const m = Math.floor((frames % (3600 * 30)) / (60 * 30));
-            const s = Math.floor((frames % (60 * 30)) / 30);
-            const f = frames % 30;
+            const h = Math.floor(frames / (3600 * fps));
+            const m = Math.floor((frames % (3600 * fps)) / (60 * fps));
+            const s = Math.floor((frames % (60 * fps)) / fps);
+            const f = frames % fps;
             return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}:${String(f).padStart(2, '0')}`;
         }
         
