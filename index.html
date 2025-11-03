@@ -863,6 +863,10 @@
                 <div class="stat-value" id="stillsArchives">0</div>
                 <div class="stat-label">Stills Archives</div>
             </div>
+            <div class="stat-card" style="border-left: 4px solid #17a2b8;">
+                <div class="stat-value" id="uniqueInvNo" style="color: #17a2b8;">0</div>
+                <div class="stat-label">Unique Inv No</div>
+            </div>
         </div>
         
         <div class="controls">
@@ -1597,11 +1601,18 @@
             const totalDuration = TCSUM(allDurations, 30);
             console.log('📊 Final Video Duration (TCSUM):', totalDuration);
             
+            // Count unique Inv No values (excluding empty ones)
+            const allInvNos = data.flatMap(a => a.clips.map(clip => clip.invNo).filter(invNo => invNo && invNo.trim() !== ''));
+            const uniqueInvNos = new Set(allInvNos);
+            const uniqueInvNoCount = uniqueInvNos.size;
+            console.log('📊 Unique Inv No count:', uniqueInvNoCount);
+            
             document.getElementById('videoClips').textContent = videoClips;
             document.getElementById('videoArchives').textContent = videoData.length;
             document.getElementById('videoDuration').textContent = totalDuration;
             document.getElementById('stillsCount').textContent = stillsCount;
             document.getElementById('stillsArchives').textContent = stillsData.length;
+            document.getElementById('uniqueInvNo').textContent = uniqueInvNoCount;
         }
         
         function copyPlainText() {
