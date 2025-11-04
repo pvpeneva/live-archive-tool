@@ -157,6 +157,14 @@
             padding:12px; border:2px solid #dee2e6; border-radius:8px; font-size:1em; transition:all .3s;
         }
         .control-group input:focus, .control-group select:focus{ outline:none; border-color:#667eea; box-shadow:0 0 0 3px rgba(102,126,234,.1); }
+
+        /* ID sort button */
+        .id-sort-wrap{ display:flex; gap:8px; align-items:center; }
+        #idSortBtn{
+            padding:10px 12px; border:none; border-radius:8px; background:#e9ecef; color:#333; font-weight:700; cursor:pointer;
+        }
+        #idSortBtn:hover{ background:#dee2e6; }
+
         .button-group{ grid-column:1 / -1; display:flex; gap:10px; margin-top:6px; flex-wrap:wrap; }
         .btn{
             padding:12px 18px; border:none; border-radius:8px; font-size:.95em; font-weight:700; cursor:pointer; transition:all .2s; flex:1; min-width:140px;
@@ -417,6 +425,10 @@
                 <option value="clips-desc">Clip Count (Most First)</option>
                 <option value="clips-asc">Clip Count (Least First)</option>
             </select>
+            <!-- NEW: ID sort button -->
+            <div class="id-sort-wrap" style="margin-top:6px;">
+                <button id="idSortBtn" onclick="toggleIdSort()">ID: Off</button>
+            </div>
         </div>
         <div class="control-group">
             <label for="filterArchive">Filter by Archive</label>
@@ -459,6 +471,20 @@ let currentSheetId = null;
 let editingSheetId = null;
 let currentSheetName = '';
 let currentSheetInfo = {};
+let idSortMode = 'none'; // 'none' | 'asc' | 'desc'  ← NEW
+
+function updateIdSortBtn(){
+    const btn = document.getElementById('idSortBtn');
+    if (!btn) return;
+    if (idSortMode==='asc') { btn.textContent = 'ID: ↑'; }
+    else if (idSortMode==='desc') { btn.textContent = 'ID: ↓'; }
+    else { btn.textContent = 'ID: Off'; }
+}
+function toggleIdSort(){
+    idSortMode = (idSortMode==='none') ? 'asc' : (idSortMode==='asc' ? 'desc' : 'none');
+    updateIdSortBtn();
+    applyFilters();
+}
 
 async function loadSavedSheets() {
     savedSheets = [];
@@ -522,6 +548,7 @@ async function loadSavedSheets() {
         if (lastActive && savedSheets.find(s => s.id === lastActive)) loadSheet(lastActive);
         else loadSheet(savedSheets[0].id);
     }
+    updateIdSortBtn(); // init label
 }
 
 function renderSheetList(){
@@ -684,7 +711,7 @@ function updateHeaderInfoDisplay(){
             html += `<div class="info-label">Contact:</div><div><a class="info-mail" href="mailto:${currentSheetInfo.contact}">${currentSheetInfo.contact}</a></div>`;
         }
         if (currentSheetInfo.sheetLink){
-            html += `<div class="info-label">Google Sheet:</div><div><a href="${currentSheetInfo.sheetLink}" target="_blank" class="info-mail" style="background:rgba(40,167,69,.12);">${'Open Sheet'}</a></div>`;
+            html += `<div class="info-label">Google Sheet:</div><div><a href="${currentSheetInfo.sheetLink}" target="_blank" class="info-mail" style="background:rgba(40,167,69,.12);">Open Sheet</a></div>`;
         }
         content.innerHTML = html; display.style.display='block';
     } else { display.style.display='none'; }
@@ -873,6 +900,12 @@ function renderTables(data){
     updateStats(data);
 }
 
+function parseIdNumber(id){
+    if (!id) return NaN;
+    const m = id.toString().match(/\d+/); // първата числова поредица
+    return m ? parseInt(m[0],10) : NaN;
+}
+
 function applyFilters(){
     const term = document.getElementById('searchInput').value.toLowerCase();
     const sortBy = document.getElementById('sortSelect').value;
@@ -903,7 +936,22 @@ function applyFilters(){
         }
     });
 
-    renderTables(filteredData);
+    // NEW: вътрешно сортиране на клиповете по ID за всеки архив
+    let dataForRender = filteredData.map(a=>{
+        if (idSortMode==='none') return a;
+        const sortedClips = [...a.clips].sort((x,y)=>{
+            const nx = parseIdNumber(x.id);
+            const ny = parseIdNumber(y.id);
+            // ако няма числа, fallback към лексикографски
+            if (isNaN(nx) || isNaN(ny)) return idSortMode==='asc'
+                ? ( (x.id||'').localeCompare(y.id||'') )
+                : ( (y.id||'').localeCompare(x.id||'') );
+            return idSortMode==='asc' ? (nx - ny) : (ny - nx);
+        });
+        return { ...a, clips: sortedClips };
+    });
+
+    renderTables(dataForRender);
 }
 
 function resetFilters(){
@@ -911,6 +959,7 @@ function resetFilters(){
     document.getElementById('sortSelect').value='duration-desc';
     document.getElementById('filterArchive').value='all';
     document.getElementById('viewMode').value='all';
+    idSortMode='none'; updateIdSortBtn(); // reset ID sort
     applyFilters();
 }
 
@@ -1074,9 +1123,9 @@ function exportToExcel(){
 
         const summary = [
             ['Archive Report Summary'], [''],
-            ['Generated:', new Date().toLocaleString()],
-            ['Sheet Name:', currentSheetName || 'N/A']
-        ];
+            ['Generated:', new Date().toLocaleString()]],
+            nameRow = ['Sheet Name:', currentSheetName || 'N/A'];
+        summary.push(nameRow);
 
         if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.episode || currentSheetInfo.name || currentSheetInfo.researcher || currentSheetInfo.contact){
             summary.push([''], ['SHEET INFORMATION']);
@@ -1103,6 +1152,7 @@ function exportToExcel(){
 
         if (video.length>0){
             const rows = [['Archive','#','ID','Inv No','File Name','Source In','Source Out','Duration','Link']];
+
             video.forEach(a=>{
                 rows.push([`${a.name} (${a.clips.length} clips)`,'','','','','','','','']);
                 a.clips.forEach((c,i)=> rows.push(['', i+1, c.id||'', c.invNo||'', c.fileName||'', c.sourceIn||'', c.sourceOut||'', c.duration||'00:00:00:00', c.link||'']));
