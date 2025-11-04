@@ -1573,8 +1573,11 @@
                 } else {
                     duration = (row.SOURCE_DURATION || row['SOURCE DURATION'] || row['Source Duration'] || row.Duration || row.duration || '00:00:00:00').toString().trim();
                 }
-                const sourceIn = (row.SOURCE_IN || row['SOURCE IN'] || row['Source In'] || row.SEQUENCE_IN || row['SEQUENCE IN'] || '').toString().trim();
-                const sourceOut = (row.SOURCE_OUT || row['SOURCE OUT'] || row['Source Out'] || row.SEQUENCE_OUT || row['SEQUENCE OUT'] || '').toString().trim();
+                
+                /* ✅ ЗАДЪЛЖИТЕЛНО: само SOURCE IN/OUT (премахнати са SEQUENCE IN/OUT) */
+                const sourceIn = (row.SOURCE_IN || row['SOURCE IN'] || row['Source In'] || '').toString().trim();
+                const sourceOut = (row.SOURCE_OUT || row['SOURCE OUT'] || row['Source Out'] || '').toString().trim();
+                
                 const link = (row.link || row.Link || row.URL || '').toString().trim();
                 
                 if (!archiveMap.has(archive)) {
@@ -2235,4 +2238,3 @@
     </script>
 </body>
 </html>
-
