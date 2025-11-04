@@ -1970,5 +1970,96 @@
             loadSavedSheets();
         };
     </script>
+    // === COPY BUTTONS IMPLEMENTATION ===
+
+// Helper function: strip emojis and extra spaces
+function removeEmojisAndTrim(text) {
+    return text.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|[\uD83C-\uDBFF\uDC00-\uDFFF]|[\u2600-\u26FF]|\uFE0F)/g, '').trim();
+}
+
+// Helper function: convert a table element to plain text
+function tableToText(table) {
+    const rows = Array.from(table.querySelectorAll('tr'));
+    return rows.map(row => {
+        const cells = Array.from(row.querySelectorAll('th, td')).map(cell =>
+            removeEmojisAndTrim(cell.innerText.replace(/\s+/g, ' ').trim())
+        );
+        return cells.join('\t');
+    }).join('\n');
+}
+
+// === Copy filtered table only ===
+function copyPlainText() {
+    const tables = document.querySelectorAll('#content .archive-table');
+    if (tables.length === 0) {
+        alert('Няма таблици за копиране.');
+        return;
+    }
+
+    let output = '';
+    tables.forEach((table, index) => {
+        if (index > 0) output += '\n\n';
+        const archiveTitle = table.closest('.archive-section').querySelector('.archive-title span:first-child')?.innerText || '';
+        output += removeEmojisAndTrim(archiveTitle) + '\n';
+        output += tableToText(table);
+    });
+
+    navigator.clipboard.writeText(output)
+        .then(() => alert('✅ Таблицата е копирана успешно!'))
+        .catch(() => {
+            const textarea = document.createElement('textarea');
+            textarea.value = output;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            alert('✅ Таблицата е копирана успешно!');
+        });
+}
+
+// === Copy header info + all tables (no colors/emojis) ===
+function copyAsTable() {
+    let output = '';
+
+    // 1️⃣ Header Info
+    const headerContent = document.querySelector('#headerInfoContent');
+    if (headerContent && headerContent.innerText.trim() !== '') {
+        const labels = headerContent.querySelectorAll('div');
+        for (let i = 0; i < labels.length; i += 2) {
+            const label = labels[i]?.innerText || '';
+            const value = labels[i + 1]?.innerText || '';
+            output += `${removeEmojisAndTrim(label)}: ${removeEmojisAndTrim(value)}\n`;
+        }
+        output += '\n';
+    }
+
+    // 2️⃣ Tables
+    const tables = document.querySelectorAll('#content .archive-table');
+    if (tables.length === 0) {
+        alert('Няма таблици за копиране.');
+        return;
+    }
+
+    tables.forEach((table, index) => {
+        if (index > 0) output += '\n\n';
+        const archiveTitle = table.closest('.archive-section').querySelector('.archive-title span:first-child')?.innerText || '';
+        output += removeEmojisAndTrim(archiveTitle) + '\n';
+        output += tableToText(table);
+    });
+
+    navigator.clipboard.writeText(output)
+        .then(() => alert('✅ Всичко е копирано успешно!'))
+        .catch(() => {
+            const textarea = document.createElement('textarea');
+            textarea.value = output;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            alert('✅ Всичко е копирано успешно!');
+        });
+}
+
 </body>
 </html>
+
