@@ -908,6 +908,11 @@
                 <div class="stat-value" id="stillsArchives">0</div>
                 <div class="stat-label">Stills Archives</div>
             </div>
+            <!-- ✅ Unique Sources (ново) -->
+            <div class="stat-card video">
+                <div class="stat-value" id="uniqueSources">0</div>
+                <div class="stat-label">Unique Sources</div>
+            </div>
         </div>
         
         <div class="controls">
@@ -1204,7 +1209,7 @@
             document.getElementById('sheetEpisode').value = sheet.episode || '';
             document.getElementById('sheetName').value = sheet.name;
             document.getElementById('sheetUrl').value = sheet.url;
-            document.getElementById('sheetLink').value = sheet.sheetLink || '';
+            document.getElementById('sheetLink').value = sheetLink || '';
             document.getElementById('sheetProduction').value = sheet.production || '';
             document.getElementById('sheetProject').value = sheet.project || '';
             document.getElementById('sheetResearcher').value = sheet.researcher || '';
@@ -1820,12 +1825,28 @@
             
             const allDurations = videoData.flatMap(a => a.clips.map(clip => clip.duration));
             const totalDuration = TCSUM(allDurations, 30);
-            
+
+            // ✅ Unique Sources: броим уникалните имена на клиповете (без разширение, case-insensitive, trim)
+            const toBaseName = (name) => {
+                if (!name) return '';
+                const trimmed = name.toString().trim().toLowerCase();
+                return trimmed.replace(/\.[a-z0-9]+$/i, ''); // маха .mp4, .mov и т.н.
+            };
+            const uniqueSet = new Set(
+                videoData
+                  .flatMap(a => a.clips.map(c => c.fileName))
+                  .filter(Boolean)
+                  .map(toBaseName)
+            );
+            const uniqueCount = uniqueSet.size;
+
             document.getElementById('videoClips').textContent = videoClips;
             document.getElementById('videoArchives').textContent = videoData.length;
             document.getElementById('videoDuration').textContent = totalDuration;
             document.getElementById('stillsCount').textContent = stillsCount;
             document.getElementById('stillsArchives').textContent = stillsData.length;
+            const uniqueEl = document.getElementById('uniqueSources');
+            if (uniqueEl) uniqueEl.textContent = uniqueCount;
         }
         
         function copyPlainText() {
@@ -2148,11 +2169,25 @@
                     if (currentSheetInfo.contact) summaryData.push(['Contact:', currentSheetInfo.contact]);
                 }
                 
+                // Добавяме статистики
                 summaryData.push(['']);
                 summaryData.push(['STATISTICS']);
                 summaryData.push(['Video Archives:', videoData.length]);
-                summaryData.push(['Video Clips:', videoData.reduce((sum, a) => sum + a.clips.length, 0)]);
-                summaryData.push(['Total Video Duration:', videoData.reduce((sum, a) => sum + a.totalFrames, 0) > 0 ? framesToTimecode(videoData.reduce((sum, a) => sum + a.totalFrames, 0), 30) : '00:00:00:00']);
+                const totalVideoClips = videoData.reduce((sum, a) => sum + a.clips.length, 0);
+                summaryData.push(['Video Clips:', totalVideoClips]);
+                const totalDurationFrames = videoData.reduce((sum, a) => sum + a.totalFrames, 0);
+                summaryData.push(['Total Video Duration:', totalDurationFrames > 0 ? framesToTimecode(totalDurationFrames, 30) : '00:00:00:00']);
+                // ✅ Unique Sources и в Excel Summary
+                const toBaseName = (name) => {
+                    if (!name) return '';
+                    const trimmed = name.toString().trim().toLowerCase();
+                    return trimmed.replace(/\.[a-z0-9]+$/i, '');
+                };
+                const uniqueCount = new Set(
+                    videoData.flatMap(a => a.clips.map(c => c.fileName)).filter(Boolean).map(toBaseName)
+                ).size;
+                summaryData.push(['Unique Sources:', uniqueCount]);
+
                 summaryData.push(['']);
                 summaryData.push(['Stills Archives:', stillsData.length]);
                 summaryData.push(['Total Stills:', stillsData.reduce((sum, a) => sum + a.entries, 0)]);
