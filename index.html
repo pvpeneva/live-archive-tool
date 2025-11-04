@@ -877,13 +877,10 @@
             </div>
         </div>
         
-        <div id="headerInfoDisplay" style="display: none; padding: 30px 40px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-bottom: 3px solid #667eea;">
-            <div style="max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); border-left: 6px solid #667eea;">
-                <div style="display: flex; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #e9ecef;">
-                    <div style="font-size: 2.5em; margin-right: 15px;">📋</div>
-                    <h2 style="color: #667eea; font-size: 1.8em; margin: 0;">Sheet Information</h2>
-                </div>
-                <div id="headerInfoContent" style="display: grid; grid-template-columns: 200px 1fr; gap: 15px; line-height: 2.2; color: #495057; font-size: 1.05em;"></div>
+        <div id="headerInfoDisplay" style="display: none; padding: 30px 40px; background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+            <div style="max-width: 1200px; margin: 0 auto; background: white; padding: 25px 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); border-left: 4px solid #667eea;">
+                <h2 style="color: #495057; font-size: 1.4em; margin: 0 0 20px 0; padding-bottom: 12px; border-bottom: 1px solid #e9ecef;">Sheet Information</h2>
+                <div id="headerInfoContent" style="display: grid; grid-template-columns: 180px 1fr; gap: 12px; line-height: 1.8; color: #495057; font-size: 1em;"></div>
             </div>
         </div>
         
@@ -947,8 +944,8 @@
             <div class="button-group">
                 <button class="btn btn-primary" onclick="applyFilters()">Apply Filters</button>
                 <button class="btn btn-secondary" onclick="resetFilters()">Reset All</button>
-                <button class="btn btn-success" onclick="copyPlainText()">📋 Copy as Table</button>
-                <button class="btn btn-success" onclick="copyAsTable()">📊 Copy with Summary</button>
+                <button class="btn btn-success" onclick="copyFilteredOnly()">📋 Copy Filtered Only</button>
+                <button class="btn btn-success" onclick="copyFullReport()">📊 Copy Full Report</button>
                 <button class="btn btn-success" onclick="exportToExcel()">📥 Export to Excel</button>
                 <button class="btn btn-secondary" onclick="window.print()">🖨️ Print</button>
             </div>
@@ -1466,34 +1463,34 @@
                 let html = '';
                 
                 if (currentSheetInfo.production) {
-                    html += '<div style="font-weight: 600; color: #667eea;">🏢 Production company:</div>';
+                    html += '<div style="font-weight: 600; color: #495057;">Production company:</div>';
                     html += '<div>' + currentSheetInfo.production + '</div>';
                 }
                 
                 if (currentSheetInfo.project) {
-                    html += '<div style="font-weight: 600; color: #667eea;">🎬 Film project:</div>';
+                    html += '<div style="font-weight: 600; color: #495057;">Film project:</div>';
                     html += '<div>' + currentSheetInfo.project + '</div>';
                 }
                 
                 if (currentSheetInfo.episode || currentSheetInfo.name) {
                     const episodeName = currentSheetInfo.episode ? currentSheetInfo.episode + ' ' + currentSheetInfo.name : currentSheetInfo.name;
-                    html += '<div style="font-weight: 600; color: #667eea;">📺 Episode:</div>';
-                    html += '<div style="font-weight: 600; font-size: 1.1em;">' + episodeName + '</div>';
+                    html += '<div style="font-weight: 600; color: #495057;">Episode:</div>';
+                    html += '<div style="font-weight: 600;">' + episodeName + '</div>';
                 }
                 
                 if (currentSheetInfo.researcher) {
-                    html += '<div style="font-weight: 600; color: #667eea;">👤 Researcher:</div>';
+                    html += '<div style="font-weight: 600; color: #495057;">Researcher:</div>';
                     html += '<div>' + currentSheetInfo.researcher + '</div>';
                 }
                 
                 if (currentSheetInfo.contact) {
-                    html += '<div style="font-weight: 600; color: #667eea;">📧 Contact:</div>';
-                    html += '<div><a href="mailto:' + currentSheetInfo.contact + '" style="color: #667eea; text-decoration: none; font-weight: 600; padding: 8px 16px; background: rgba(102, 126, 234, 0.1); border-radius: 6px; display: inline-block; transition: all 0.3s;" onmouseover="this.style.background=\'rgba(102, 126, 234, 0.2)\'" onmouseout="this.style.background=\'rgba(102, 126, 234, 0.1)\'">' + currentSheetInfo.contact + '</a></div>';
+                    html += '<div style="font-weight: 600; color: #495057;">Contact:</div>';
+                    html += '<div><a href="mailto:' + currentSheetInfo.contact + '" style="color: #667eea; text-decoration: none;">' + currentSheetInfo.contact + '</a></div>';
                 }
                 
                 if (currentSheetInfo.sheetLink) {
-                    html += '<div style="font-weight: 600; color: #667eea;">📄 Google Sheet:</div>';
-                    html += '<div><a href="' + currentSheetInfo.sheetLink + '" target="_blank" style="color: #28a745; text-decoration: none; font-weight: 600; padding: 8px 16px; background: rgba(40, 167, 69, 0.1); border-radius: 6px; display: inline-block; transition: all 0.3s;" onmouseover="this.style.background=\'rgba(40, 167, 69, 0.2)\'" onmouseout="this.style.background=\'rgba(40, 167, 69, 0.1)\'">🔗 Open Sheet</a></div>';
+                    html += '<div style="font-weight: 600; color: #495057;">Google Sheet:</div>';
+                    html += '<div><a href="' + currentSheetInfo.sheetLink + '" target="_blank" style="color: #667eea; text-decoration: none;">Open Sheet →</a></div>';
                 }
                 
                 content.innerHTML = html;
@@ -1952,11 +1949,100 @@
         }
         
         // Placeholder functions for copy/export (keeping them simple for now)
-        function copyPlainText() {
+        function copyFilteredOnly() {
+            const dataToUse = (filteredData && filteredData.length > 0) ? filteredData : archiveData;
+            
+            if (!dataToUse || dataToUse.length === 0) {
+                alert('⚠️ No data to copy!\n\nPlease load a sheet first.');
+                return;
+            }
+            
+            const videoData = dataToUse.filter(a => a.type === 'video');
+            const stillsData = dataToUse.filter(a => a.type === 'stills');
+            
+            // SIMPLE TABLE - ONLY FILTERED DATA, NO HEADER INFO
+            let html = '<html><head><style>';
+            html += 'body { font-family: Arial, sans-serif; font-size: 11pt; }';
+            html += 'table { border-collapse: collapse; width: 100%; margin-bottom: 20px; border: 1px solid #000; }';
+            html += 'th { background: #f0f0f0; color: #000000; padding: 8px; text-align: left; font-weight: bold; border: 1px solid #000; }';
+            html += 'td { padding: 8px; border: 1px solid #000; background: #ffffff; color: #000000; }';
+            html += '.archive-name { font-weight: bold; margin-top: 15px; margin-bottom: 5px; font-size: 11pt; color: #000000; }';
+            html += '.total-row { background: #e0e0e0; font-weight: bold; border-top: 2px solid #000; }';
+            html += '.section-title { font-weight: bold; font-size: 12pt; margin: 15px 0 8px 0; color: #000000; }';
+            html += '<\/style><\/head><\/body>';
+            
+            // Video Archives
+            if (videoData.length > 0) {
+                html += '<div class="section-title">VIDEO CLIPS</div>';
+                
+                videoData.forEach(archive => {
+                    html += '<div class="archive-name">' + archive.name + ' (' + archive.clips.length + ' clips)</div>';
+                    html += '<table>';
+                    html += '<thead><tr>';
+                    html += '<th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Source In</th><th>Source Out</th><th>Duration</th><th>Link</th>';
+                    html += '</tr></thead>';
+                    html += '<tbody>';
+                    
+                    archive.clips.forEach((clip, i) => {
+                        html += '<tr>';
+                        html += '<td>' + (i + 1) + '</td>';
+                        html += '<td>' + (clip.id || '') + '</td>';
+                        html += '<td>' + (clip.invNo || '') + '</td>';
+                        html += '<td>' + (clip.fileName || '') + '</td>';
+                        html += '<td>' + (clip.sourceIn || '') + '</td>';
+                        html += '<td>' + (clip.sourceOut || '') + '</td>';
+                        html += '<td>' + (clip.duration || '00:00:00:00') + '</td>';
+                        html += '<td>' + (clip.link ? '<a href="' + clip.link + '">Link</a>' : '') + '</td>';
+                        html += '</tr>';
+                    });
+                    
+                    html += '<tr class="total-row">';
+                    html += '<td colspan="6"><strong>TOTAL</strong></td>';
+                    html += '<td><strong>' + archive.duration + '</strong></td>';
+                    html += '<td></td>';
+                    html += '</tr>';
+                    html += '</tbody></table>';
+                });
+            }
+            
+            // Stills Archives
+            if (stillsData.length > 0) {
+                html += '<div class="section-title">STILLS / IMAGES</div>';
+                
+                stillsData.forEach(archive => {
+                    html += '<div class="archive-name">' + archive.name + ' (' + archive.entries + ' stills)</div>';
+                    html += '<table>';
+                    html += '<thead><tr>';
+                    html += '<th>#</th><th>ID</th><th>Inv No</th><th>File Name</th><th>Type</th><th>Link</th>';
+                    html += '</tr></thead>';
+                    html += '<tbody>';
+                    
+                    archive.clips.forEach((clip, i) => {
+                        html += '<tr>';
+                        html += '<td>' + (i + 1) + '</td>';
+                        html += '<td>' + (clip.id || '') + '</td>';
+                        html += '<td>' + (clip.invNo || '') + '</td>';
+                        html += '<td>' + (clip.fileName || '') + '</td>';
+                        html += '<td>Still Image</td>';
+                        html += '<td>' + (clip.link ? '<a href="' + clip.link + '">Link</a>' : '') + '</td>';
+                        html += '</tr>';
+                    });
+                    
+                    html += '<tr class="total-row">';
+                    html += '<td colspan="6"><strong>TOTAL: ' + archive.entries + ' Still Images</strong></td>';
+                    html += '</tr>';
+                    html += '</tbody></table>';
+                });
+            }
+            
+            html += '<\/body><\/html>';
+            
+            copyFormattedContent(html);
+        }
             alert('Copy function - implement as needed');
         }
         
-        function copyAsTable() {
+        function copyFullReport() {
             alert('Copy table function - implement as needed');
         }
         
