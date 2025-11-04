@@ -979,11 +979,11 @@
             
             try {
                 console.log('🌐 Loading public config from GitHub...');
-                let configUrl = 'https://raw.githubusercontent.com/frank-drauschke/live-archive-tool/main/sheets-config.json';
+                let configUrl = 'https://raw.githubusercontent.com/pvpeneva/live-archive-tool/main/sheets-config.json';
                 let response = await fetch(configUrl + '?t=' + Date.now());
                 
                 if (response.status === 404) {
-                    configUrl = 'https://raw.githubusercontent.com/frank-drauschke/live-archive-tool/master/sheets-config.json';
+                    configUrl = 'https://raw.githubusercontent.com/pvpeneva/live-archive-tool/master/sheets-config.json';
                     response = await fetch(configUrl + '?t=' + Date.now());
                 }
                 
@@ -2235,3 +2235,4 @@
     </script>
 </body>
 </html>
+
