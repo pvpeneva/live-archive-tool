@@ -1968,8 +1968,8 @@
             html += 'td { padding: 8px; border: 1px solid #000; background: #ffffff; color: #000000; }';
             html += '.archive-name { font-weight: bold; margin-top: 15px; margin-bottom: 5px; font-size: 11pt; color: #000000; }';
             html += '.total-row { background: #e0e0e0; font-weight: bold; border-top: 2px solid #000; }';
-            html += '.section-title { font-weight: bold; font-size: 12pt; margin: 15px 0 8px 0; color: #000000; }';
-            html += '<\/style><\/head><\/body>';
+            html += 'a { color: #0066cc; text-decoration: none; }';
+            html += '</style></head><body>';
             
             // Video Archives
             if (videoData.length > 0) {
@@ -2035,26 +2035,9 @@
                 });
             }
             
-            html += '<\/body><\/html>';
+            html += '</body></html>';
             
             copyFormattedContent(html);
         }
-            alert('Copy function - implement as needed');
-        }
         
         function copyFullReport() {
-            alert('Copy table function - implement as needed');
-        }
-        
-        function exportToExcel() {
-            alert('Export function - implement as needed');
-        }
-        
-        // Initialize on page load
-        window.onload = () => {
-            console.log('🚀 Page loaded - initializing...');
-            loadSavedSheets();
-        };
-    </script>
-</body>
-</html>
