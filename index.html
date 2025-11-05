@@ -255,7 +255,7 @@
         <ul class="sheet-list" id="sheetList"></ul>
         <div class="empty-state" id="emptyState" style="text-align:center; padding:30px; color:#6c757d;">
             <p>No sheets saved yet</p>
-            <p style="font-size:.9em; margin-top:6px;">Click “Add New Sheet” to get started</p>
+            <p style="font-size:.9em; margin-top:6px;">Click "Add New Sheet" to get started</p>
         </div>
     </div>
 </div>
@@ -346,7 +346,7 @@
         <div class="setup-step">
             <h4>Step 4: Save to Sidebar</h4>
             <ol style="line-height:1.9;">
-                <li>Open the ☰ menu</li><li>Click “Add New Sheet”</li><li>Paste the URL</li><li>Save</li>
+                <li>Open the ☰ menu</li><li>Click "Add New Sheet"</li><li>Paste the URL</li><li>Save</li>
             </ol>
         </div>
     </div>
@@ -471,7 +471,7 @@ let currentSheetId = null;
 let editingSheetId = null;
 let currentSheetName = '';
 let currentSheetInfo = {};
-let idSortMode = 'none'; // 'none' | 'asc' | 'desc'  ← NEW
+let idSortMode = 'none'; // 'none' | 'asc' | 'desc'
 
 function updateIdSortBtn(){
     const btn = document.getElementById('idSortBtn');
@@ -519,7 +519,6 @@ async function loadSavedSheets() {
         }
     } catch(e){ console.error('localStorage load error:', e); }
 
-    // Shared-in link (?s=...)
     const urlParams = new URLSearchParams(window.location.search);
     const shareParam = urlParams.get('s');
     if (shareParam) {
@@ -548,7 +547,7 @@ async function loadSavedSheets() {
         if (lastActive && savedSheets.find(s => s.id === lastActive)) loadSheet(lastActive);
         else loadSheet(savedSheets[0].id);
     }
-    updateIdSortBtn(); // init label
+    updateIdSortBtn();
 }
 
 function renderSheetList(){
@@ -656,7 +655,6 @@ function saveSheet(){
     localStorage.setItem('savedSheets', JSON.stringify(savedSheets));
     renderSheetList(); closeModal();
 
-    // Load selection
     setTimeout(()=> {
         const id = editingSheetId ? editingSheetId : savedSheets[savedSheets.length-1].id;
         loadSheet(id);
@@ -683,12 +681,10 @@ function loadSheet(id){
     };
     localStorage.setItem('lastActiveSheet', id);
 
-    // Header name & button
     document.getElementById('activeSheetName').textContent = currentSheetName ? `Active: ${currentSheetName}` : '';
     const btn = document.getElementById('openSheetBtn');
     if (currentSheetInfo.sheetLink){ btn.style.display='inline-block'; } else { btn.style.display='none'; }
 
-    // Fill URL field & render
     document.getElementById('appsScriptUrl').value = sheet.url;
     renderSheetList(); closeSidebar();
     updateHeaderInfoDisplay();
@@ -902,7 +898,7 @@ function renderTables(data){
 
 function parseIdNumber(id){
     if (!id) return NaN;
-    const m = id.toString().match(/\d+/); // първата числова поредица
+    const m = id.toString().match(/\d+/);
     return m ? parseInt(m[0],10) : NaN;
 }
 
@@ -936,13 +932,11 @@ function applyFilters(){
         }
     });
 
-    // NEW: вътрешно сортиране на клиповете по ID за всеки архив
     let dataForRender = filteredData.map(a=>{
         if (idSortMode==='none') return a;
         const sortedClips = [...a.clips].sort((x,y)=>{
             const nx = parseIdNumber(x.id);
             const ny = parseIdNumber(y.id);
-            // ако няма числа, fallback към лексикографски
             if (isNaN(nx) || isNaN(ny)) return idSortMode==='asc'
                 ? ( (x.id||'').localeCompare(y.id||'') )
                 : ( (y.id||'').localeCompare(x.id||'') );
@@ -959,7 +953,7 @@ function resetFilters(){
     document.getElementById('sortSelect').value='duration-desc';
     document.getElementById('filterArchive').value='all';
     document.getElementById('viewMode').value='all';
-    idSortMode='none'; updateIdSortBtn(); // reset ID sort
+    idSortMode='none'; updateIdSortBtn();
     applyFilters();
 }
 
@@ -982,7 +976,6 @@ function updateStats(data){
     const el = document.getElementById('uniqueSources'); if (el) el.textContent = unique.size;
 }
 
-/* Copy plain table (no emojis) */
 function copyPlainText(){
     const data = (filteredData && filteredData.length>0) ? filteredData : archiveData;
     if (!data || data.length===0) return alert('No data to copy. Load a sheet first.');
@@ -1027,11 +1020,19 @@ function copyPlainText(){
     copyFormattedContent(html);
 }
 
-/* Copy with summary (no emojis) */
 function copyAsTable(){
     const data = (filteredData && filteredData.length>0) ? filteredData : archiveData;
     if (!data || data.length===0) return alert('No data to copy. Load a sheet first.');
-    const video = data.filter(a=>a.type==='video'); const stills = data.filter(a=>a.type==='stills');
+    const video = data.filter(a=>a.type==='video'); 
+    const stills = data.filter(a=>a.type==='stills');
+
+    // Calculate statistics
+    const videoClips = video.reduce((s,a)=>s+a.clips.length,0);
+    const stillsCount = stills.reduce((s,a)=>s+a.entries,0);
+    const allDurations = video.flatMap(a=>a.clips.map(c=>c.duration));
+    const totalDuration = TCSUM(allDurations,30);
+    const toBaseName = n=>!n?'':n.toString().trim().toLowerCase().replace(/\.[a-z0-9]+$/i,'');
+    const uniqueSources = new Set(video.flatMap(a=>a.clips.map(c=>c.fileName)).filter(Boolean).map(toBaseName)).size;
 
     let html = '<html><head><style>';
     html += 'body{font-family:Arial,sans-serif;font-size:11pt;}';
@@ -1063,6 +1064,18 @@ function copyAsTable(){
         if (currentSheetInfo.sheetLink) html += `<tr><td class="info-label">Google Sheet:</td><td class="info-value"><a href="${currentSheetInfo.sheetLink}">Open Sheet</a></td></tr>`;
         html += '</tbody></table>';
     }
+
+    // ADD STATISTICS TABLE
+    html += '<table class="info-table" style="margin-bottom:20px;">';
+    html += '<thead><tr><th colspan="2">Archive Report Summary</th></tr></thead>';
+    html += '<tbody>';
+    html += `<tr><td class="info-label">Video Clips:</td><td class="info-value">${videoClips}</td></tr>`;
+    html += `<tr><td class="info-label">Video Archives:</td><td class="info-value">${video.length}</td></tr>`;
+    html += `<tr><td class="info-label">Video Duration:</td><td class="info-value">${totalDuration}</td></tr>`;
+    html += `<tr><td class="info-label">Stills/Images:</td><td class="info-value">${stillsCount}</td></tr>`;
+    html += `<tr><td class="info-label">Stills Archives:</td><td class="info-value">${stills.length}</td></tr>`;
+    html += `<tr><td class="info-label">Unique Sources:</td><td class="info-value">${uniqueSources}</td></tr>`;
+    html += '</tbody></table>';
 
     if (video.length>0){
         html += '<div class="section-title">VIDEO ARCHIVES</div>';
@@ -1123,9 +1136,9 @@ function exportToExcel(){
 
         const summary = [
             ['Archive Report Summary'], [''],
-            ['Generated:', new Date().toLocaleString()]],
-            nameRow = ['Sheet Name:', currentSheetName || 'N/A'];
-        summary.push(nameRow);
+            ['Generated:', new Date().toLocaleString()],
+            ['Sheet Name:', currentSheetName || 'N/A']
+        ];
 
         if (currentSheetInfo.production || currentSheetInfo.project || currentSheetInfo.episode || currentSheetInfo.name || currentSheetInfo.researcher || currentSheetInfo.contact){
             summary.push([''], ['SHEET INFORMATION']);
